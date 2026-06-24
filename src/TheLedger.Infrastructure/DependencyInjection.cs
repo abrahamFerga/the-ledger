@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheLedger.Application.Abstractions;
+using TheLedger.Application.Budgeting;
 using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
@@ -44,6 +45,9 @@ public static class DependencyInjection
         // Ledger + categorization (feature #13).
         services.AddScoped<ICategorizer, RuleCategorizer>();
         services.AddScoped<ILedgerService, LedgerService>();
+
+        // Budgeting (feature #14).
+        services.AddScoped<IBudgetService, BudgetService>();
         return services;
     }
 }
