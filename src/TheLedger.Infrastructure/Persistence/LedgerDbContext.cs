@@ -37,6 +37,7 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
     public DbSet<Budget> Budgets => Set<Budget>();
+    public DbSet<Goal> Goals => Set<Goal>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -162,6 +163,17 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.HasKey(x => x.Id);
             e.Property(x => x.TargetAmount).HasPrecision(19, 4);
             e.HasIndex(x => new { x.TenantId, x.CategoryId, x.PeriodMonth }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Goal>(e =>
+        {
+            e.ToTable("goals");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.TargetAmount).HasPrecision(19, 4);
+            e.Property(x => x.CurrentAmount).HasPrecision(19, 4);
+            e.HasIndex(x => x.TenantId);
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }
