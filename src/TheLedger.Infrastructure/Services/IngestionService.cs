@@ -117,6 +117,14 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) 
         };
         db.Statements.Add(statement);
 
+        db.StatementFiles.Add(new StatementFile
+        {
+            Id = Guid.CreateVersion7(),
+            StatementId = statement.Id,
+            Content = content,
+            ContentType = "application/pdf",
+        });
+
         db.Outbox.Add(new OutboxMessage
         {
             Id = Guid.CreateVersion7(),

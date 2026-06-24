@@ -29,6 +29,7 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<OutboxMessage> Outbox => Set<OutboxMessage>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Statement> Statements => Set<Statement>();
+    public DbSet<StatementFile> StatementFiles => Set<StatementFile>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -98,6 +99,15 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.HasKey(x => x.Id);
             e.Property(x => x.Period).HasMaxLength(50);
             e.HasIndex(x => new { x.TenantId, x.AccountId });
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<StatementFile>(e =>
+        {
+            e.ToTable("statement_files");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ContentType).HasMaxLength(100);
+            e.HasIndex(x => x.StatementId);
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
 

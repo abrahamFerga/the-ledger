@@ -4,6 +4,8 @@ using TheLedger.Application.Abstractions;
 using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
+using TheLedger.Application.Ingestion.Extraction;
+using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Services;
 using TheLedger.Infrastructure.Tenancy;
@@ -30,6 +32,12 @@ public static class DependencyInjection
         services.AddScoped<IHouseholdService, HouseholdService>();
         services.AddScoped<IDataSubjectService, DataSubjectService>();
         services.AddScoped<IIngestionService, IngestionService>();
+
+        // Statement parsing (feature #12). The heuristic extractor is the offline default; the
+        // LLM-forward extractor (ADR-0004) swaps in behind IStatementExtractor when configured.
+        services.AddScoped<IPdfTextExtractor, Utf8TextExtractor>();
+        services.AddScoped<IStatementExtractor, HeuristicStatementExtractor>();
+        services.AddScoped<StatementParseHandler>();
         return services;
     }
 }
