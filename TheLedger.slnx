@@ -3,6 +3,7 @@
     <Project Path="src/TheLedger.Api/TheLedger.Api.csproj" />
     <Project Path="src/TheLedger.AppHost/TheLedger.AppHost.csproj" />
     <Project Path="src/TheLedger.Application.Foundations/TheLedger.Application.Foundations.csproj" />
+    <Project Path="src/TheLedger.Application.Ingestion/TheLedger.Application.Ingestion.csproj" />
     <Project Path="src/TheLedger.Application/TheLedger.Application.csproj" />
     <Project Path="src/TheLedger.Domain/TheLedger.Domain.csproj" />
     <Project Path="src/TheLedger.Infrastructure/TheLedger.Infrastructure.csproj" />

@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TheLedger.Infrastructure\TheLedger.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\TheLedger.Application.Ingestion\TheLedger.Application.Ingestion.csproj" />
   </ItemGroup>
 
 </Project>
