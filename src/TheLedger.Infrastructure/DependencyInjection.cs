@@ -6,6 +6,7 @@ using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Extraction;
+using TheLedger.Application.Insights;
 using TheLedger.Application.Ledger;
 using TheLedger.Infrastructure.Categorization;
 using TheLedger.Infrastructure.Parsing;
@@ -49,6 +50,9 @@ public static class DependencyInjection
         // Budgeting + goals (features #14, #15).
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IGoalService, GoalService>();
+
+        // Insights + export (feature #16).
+        services.AddScoped<IInsightsService, InsightsService>();
         return services;
     }
 }
