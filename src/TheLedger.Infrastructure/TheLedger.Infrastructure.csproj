@@ -4,6 +4,7 @@
     <ProjectReference Include="..\TheLedger.Application\TheLedger.Application.csproj" />
     <ProjectReference Include="..\TheLedger.Application.Foundations\TheLedger.Application.Foundations.csproj" />
     <ProjectReference Include="..\TheLedger.Domain\TheLedger.Domain.csproj" />
+    <ProjectReference Include="..\TheLedger.Application.Ingestion\TheLedger.Application.Ingestion.csproj" />
   </ItemGroup>
 
   <ItemGroup>

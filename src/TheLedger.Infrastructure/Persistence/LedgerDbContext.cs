@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using TheLedger.Application.Abstractions;
+using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Auditing;
 using TheLedger.Domain.Consent;
 using TheLedger.Domain.Identity;
+using TheLedger.Domain.Ledger;
 using TheLedger.Domain.Outbox;
+using TheLedger.Domain.Statements;
 using TheLedger.Domain.Tenants;
 
 namespace TheLedger.Infrastructure.Persistence;
@@ -24,6 +27,9 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<ConsentRecord> Consents => Set<ConsentRecord>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<OutboxMessage> Outbox => Set<OutboxMessage>();
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<Statement> Statements => Set<Statement>();
+    public DbSet<Transaction> Transactions => Set<Transaction>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -72,6 +78,39 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.HasKey(x => x.Id);
             e.Property(x => x.Type).HasMaxLength(200);
             e.HasIndex(x => new { x.Status, x.CreatedAt });
+        });
+
+        b.Entity<Account>(e =>
+        {
+            e.ToTable("accounts");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Institution).HasMaxLength(200);
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.MaskedNumber).HasMaxLength(40);
+            e.Property(x => x.CurrentBalance).HasPrecision(19, 4);
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Statement>(e =>
+        {
+            e.ToTable("statements");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Period).HasMaxLength(50);
+            e.HasIndex(x => new { x.TenantId, x.AccountId });
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Transaction>(e =>
+        {
+            e.ToTable("transactions");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Description).HasMaxLength(500).IsRequired();
+            e.Property(x => x.Amount).HasPrecision(19, 4);
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.HasIndex(x => new { x.TenantId, x.AccountId, x.Date });
+            e.HasIndex(x => new { x.TenantId, x.IsConfirmed });
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }
 }

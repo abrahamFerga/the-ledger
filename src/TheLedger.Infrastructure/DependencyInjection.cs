@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TheLedger.Application.Abstractions;
 using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
+using TheLedger.Application.Ingestion;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Services;
 using TheLedger.Infrastructure.Tenancy;
@@ -28,6 +29,7 @@ public static class DependencyInjection
 
         services.AddScoped<IHouseholdService, HouseholdService>();
         services.AddScoped<IDataSubjectService, DataSubjectService>();
+        services.AddScoped<IIngestionService, IngestionService>();
         return services;
     }
 }
