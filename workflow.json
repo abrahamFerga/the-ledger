@@ -1,7 +1,7 @@
 {
   "name": "the-ledger",
   "industry": "personal-finance",
-  "stage": "architecture",
+  "stage": "development",
   "cloud": "azure",
   "connectors": ["email"],
   "capabilities": [
