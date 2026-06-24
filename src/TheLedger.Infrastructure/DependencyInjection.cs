@@ -44,8 +44,9 @@ public static class DependencyInjection
         services.AddScoped<IStatementExtractor, HeuristicStatementExtractor>();
         services.AddScoped<StatementParseHandler>();
 
-        // Ledger + categorization (feature #13).
-        services.AddScoped<ICategorizer, RuleCategorizer>();
+        // Ledger + categorization (features #13, #18). CompositeCategorizer runs rules first, then the
+        // LLM (ADR-0004) when an IChatClient is configured; otherwise it stays rules-only.
+        services.AddScoped<ICategorizer, CompositeCategorizer>();
         services.AddScoped<ILedgerService, LedgerService>();
 
         // Budgeting + goals (features #14, #15).
