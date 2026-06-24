@@ -23,6 +23,10 @@ public static class InsightsEndpoints
                 Results.Ok(await svc.GetMonthlyTotalsAsync(ct)))
             .RequireAuthorization(Policies.InsightsView);
 
+        insights.MapGet("/by-member", async (int year, int month, IInsightsService svc, CancellationToken ct) =>
+                Results.Ok(await svc.GetSpendingByMemberAsync(year, month, ct)))
+            .RequireAuthorization(Policies.InsightsView);
+
         app.MapGet("/api/v1/export/transactions.csv", async (IInsightsService svc, CancellationToken ct) =>
             {
                 var csv = await svc.ExportTransactionsCsvAsync(ct);

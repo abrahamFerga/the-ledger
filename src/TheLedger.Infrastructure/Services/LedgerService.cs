@@ -58,6 +58,20 @@ public sealed class LedgerService(LedgerDbContext db) : ILedgerService
         return Map(transaction, categories);
     }
 
+    public async Task<TransactionListItem?> AttributeTransactionAsync(Guid id, Guid? memberUserId, CancellationToken ct)
+    {
+        var transaction = await db.Transactions.FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (transaction is null)
+        {
+            return null;
+        }
+
+        transaction.AttributedUserId = memberUserId;
+        await db.SaveChangesAsync(ct);
+        var categories = await CategoryNamesAsync(ct);
+        return Map(transaction, categories);
+    }
+
     public async Task<IReadOnlyList<TransactionListItem>> SplitTransactionAsync(Guid id, SplitTransactionRequest request, CancellationToken ct)
     {
         var original = await db.Transactions.FirstOrDefaultAsync(t => t.Id == id, ct)
@@ -155,5 +169,6 @@ public sealed class LedgerService(LedgerDbContext db) : ILedgerService
         new(t.Id, t.AccountId, t.Date, t.Description, t.Amount, t.Currency, t.Direction.ToString(),
             t.CategoryId,
             t.CategoryId is { } cid && categories.TryGetValue(cid, out var name) ? name : null,
-            t.IsConfirmed);
+            t.IsConfirmed,
+            t.AttributedUserId);
 }

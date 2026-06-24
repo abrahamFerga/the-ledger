@@ -4,7 +4,10 @@ namespace TheLedger.Application.Ledger;
 
 public sealed record TransactionListItem(
     Guid Id, Guid AccountId, DateOnly Date, string Description, decimal Amount, string Currency,
-    string Direction, Guid? CategoryId, string? CategoryName, bool IsConfirmed);
+    string Direction, Guid? CategoryId, string? CategoryName, bool IsConfirmed, Guid? AttributedUserId);
+
+/// <summary>Attribute a transaction to a household member (or pass null to clear attribution).</summary>
+public sealed record AttributeTransactionRequest(Guid? MemberUserId);
 
 public sealed record TransactionFeedQuery(Guid? AccountId, Guid? CategoryId, bool ConfirmedOnly = true);
 
@@ -23,6 +26,7 @@ public interface ILedgerService
 {
     Task<IReadOnlyList<TransactionListItem>> GetFeedAsync(TransactionFeedQuery query, CancellationToken ct);
     Task<TransactionListItem?> UpdateTransactionAsync(Guid id, UpdateTransactionRequest request, CancellationToken ct);
+    Task<TransactionListItem?> AttributeTransactionAsync(Guid id, Guid? memberUserId, CancellationToken ct);
     Task<IReadOnlyList<TransactionListItem>> SplitTransactionAsync(Guid id, SplitTransactionRequest request, CancellationToken ct);
     Task<IReadOnlyList<CategoryDto>> ListCategoriesAsync(CancellationToken ct);
     Task<CategoryDto> CreateCategoryAsync(CreateCategoryRequest request, CancellationToken ct);

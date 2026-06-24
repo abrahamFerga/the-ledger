@@ -52,6 +52,25 @@ public sealed class InsightsService(LedgerDbContext db) : IInsightsService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<MemberSpendDto>> GetSpendingByMemberAsync(int year, int month, CancellationToken ct)
+    {
+        var start = new DateOnly(year, month, 1);
+        var end = start.AddMonths(1);
+        var transactions = await db.Transactions
+            .Where(t => t.IsConfirmed && t.Direction == TransactionDirection.Debit && t.Date >= start && t.Date < end)
+            .ToListAsync(ct);
+        var members = await db.Users.ToDictionaryAsync(u => u.Id, u => u.DisplayName ?? u.Email, ct);
+
+        return transactions
+            .GroupBy(t => t.AttributedUserId)
+            .Select(g => new MemberSpendDto(
+                g.Key,
+                g.Key is { } uid && members.TryGetValue(uid, out var name) ? name : "Unattributed",
+                g.Sum(t => t.Amount)))
+            .OrderByDescending(m => m.Total)
+            .ToList();
+    }
+
     public async Task<string> ExportTransactionsCsvAsync(CancellationToken ct)
     {
         var transactions = await db.Transactions.Where(t => t.IsConfirmed).OrderBy(t => t.Date).ToListAsync(ct);
