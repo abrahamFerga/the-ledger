@@ -46,8 +46,9 @@ public static class DependencyInjection
         services.AddScoped<ICategorizer, RuleCategorizer>();
         services.AddScoped<ILedgerService, LedgerService>();
 
-        // Budgeting (feature #14).
+        // Budgeting + goals (features #14, #15).
         services.AddScoped<IBudgetService, BudgetService>();
+        services.AddScoped<IGoalService, GoalService>();
         return services;
     }
 }

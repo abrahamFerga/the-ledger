@@ -33,6 +33,7 @@ public static class RolePolicyMap
         [Policies.BudgetsView] = [Roles.Owner, Roles.Member, Roles.Viewer],
         [Policies.BudgetsEdit] = [Roles.Owner, Roles.Member],
         [Policies.GoalsView] = [Roles.Owner, Roles.Member, Roles.Viewer],
+        [Policies.GoalsEdit] = [Roles.Owner, Roles.Member],
         [Policies.InsightsView] = [Roles.Owner, Roles.Member, Roles.Viewer],
         [Policies.AlertsView] = [Roles.Owner, Roles.Member, Roles.Viewer],
 

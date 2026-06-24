@@ -24,6 +24,7 @@ public static class Policies
     public const string BudgetsView = "Budgets.View";
     public const string BudgetsEdit = "Budgets.Edit";
     public const string GoalsView = "Goals.View";
+    public const string GoalsEdit = "Goals.Edit";
     public const string InsightsView = "Insights.View";
     public const string AlertsView = "Alerts.View";
 
