@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheLedger.Application.Abstractions;
+using TheLedger.Application.Alerts;
 using TheLedger.Application.Budgeting;
 using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
@@ -53,6 +54,10 @@ public static class DependencyInjection
 
         // Insights + export (feature #16).
         services.AddScoped<IInsightsService, InsightsService>();
+
+        // Alerts: recurring detection + anomalies (feature #17).
+        services.AddScoped<IAlertService, AlertService>();
+        services.AddScoped<IAlertScanner, Alerts.AlertScanner>();
         return services;
     }
 }

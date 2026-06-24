@@ -24,6 +24,7 @@
     <ProjectReference Include="..\TheLedger.Application.Ledger\TheLedger.Application.Ledger.csproj" />
     <ProjectReference Include="..\TheLedger.Application.Budgeting\TheLedger.Application.Budgeting.csproj" />
     <ProjectReference Include="..\TheLedger.Application.Insights\TheLedger.Application.Insights.csproj" />
+    <ProjectReference Include="..\TheLedger.Application.Alerts\TheLedger.Application.Alerts.csproj" />
   </ItemGroup>
 
 </Project>

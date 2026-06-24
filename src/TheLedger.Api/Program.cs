@@ -62,6 +62,7 @@ app.MapLedger();
 app.MapBudgets();
 app.MapGoals();
 app.MapInsights();
+app.MapAlerts();
 
 // Dev convenience: create the schema if a database is reachable. Replaced by EF migrations (follow-up).
 if (app.Environment.IsDevelopment())
