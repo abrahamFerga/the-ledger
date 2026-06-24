@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TheLedger.Application.Abstractions;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Csv;
+using TheLedger.Application.Ledger;
 using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Ledger;
 using TheLedger.Domain.Outbox;
@@ -10,7 +11,7 @@ using TheLedger.Infrastructure.Persistence;
 
 namespace TheLedger.Infrastructure.Services;
 
-public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) : IIngestionService
+public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant, ICategorizer categorizer) : IIngestionService
 {
     public async Task<AccountDto> CreateAccountAsync(CreateAccountRequest request, CancellationToken ct)
     {
@@ -53,9 +54,9 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) 
             Currency = account.Currency,
             Direction = direction,
             IsConfirmed = true,
-            CategorizationSource = CategorizationSource.Manual,
         };
         db.Transactions.Add(transaction);
+        await ApplyCategorizationAsync(transaction, ct);
         account.CurrentBalance += direction == TransactionDirection.Credit ? transaction.Amount : -transaction.Amount;
 
         await db.SaveChangesAsync(ct);
@@ -81,7 +82,7 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) 
         var parsed = CsvStatementParser.Parse(request.Content);
         foreach (var row in parsed)
         {
-            db.Transactions.Add(new Transaction
+            var transaction = new Transaction
             {
                 Id = Guid.CreateVersion7(),
                 AccountId = account.Id,
@@ -92,7 +93,9 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) 
                 Currency = account.Currency,
                 Direction = row.Direction,
                 IsConfirmed = false,
-            });
+            };
+            await ApplyCategorizationAsync(transaction, ct);
+            db.Transactions.Add(transaction);
         }
 
         statement.TransactionCount = parsed.Count;
@@ -161,6 +164,7 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) 
         decimal delta = 0m;
         foreach (var transaction in staged)
         {
+            await ApplyCategorizationAsync(transaction, ct);
             transaction.IsConfirmed = true;
             delta += transaction.Direction == TransactionDirection.Credit ? transaction.Amount : -transaction.Amount;
         }
@@ -173,6 +177,22 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant) 
         statement.Status = StatementStatus.Confirmed;
         await db.SaveChangesAsync(ct);
         return ToDto(statement);
+    }
+
+    private async Task ApplyCategorizationAsync(Transaction transaction, CancellationToken ct)
+    {
+        if (transaction.CategoryId is not null)
+        {
+            return;
+        }
+
+        var result = await categorizer.CategorizeAsync(transaction.Description, ct);
+        if (result.CategoryId is { } categoryId)
+        {
+            transaction.CategoryId = categoryId;
+            transaction.CategorizationSource = result.Source;
+            transaction.Confidence = result.Confidence;
+        }
     }
 
     private static AccountDto ToDto(Account a) =>

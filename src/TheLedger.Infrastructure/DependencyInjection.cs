@@ -5,6 +5,8 @@ using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Extraction;
+using TheLedger.Application.Ledger;
+using TheLedger.Infrastructure.Categorization;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Services;
@@ -38,6 +40,10 @@ public static class DependencyInjection
         services.AddScoped<IPdfTextExtractor, Utf8TextExtractor>();
         services.AddScoped<IStatementExtractor, HeuristicStatementExtractor>();
         services.AddScoped<StatementParseHandler>();
+
+        // Ledger + categorization (feature #13).
+        services.AddScoped<ICategorizer, RuleCategorizer>();
+        services.AddScoped<ILedgerService, LedgerService>();
         return services;
     }
 }
