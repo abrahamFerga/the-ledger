@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" Version="10.0.0" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.4.6" />
+    <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.4.6" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TheLedger.Application\TheLedger.Application.csproj" />
+    <ProjectReference Include="..\TheLedger.Application.Foundations\TheLedger.Application.Foundations.csproj" />
+    <ProjectReference Include="..\TheLedger.Infrastructure\TheLedger.Infrastructure.csproj" />
+    <ProjectReference Include="..\TheLedger.Domain\TheLedger.Domain.csproj" />
+    <ProjectReference Include="..\TheLedger.ServiceDefaults\TheLedger.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

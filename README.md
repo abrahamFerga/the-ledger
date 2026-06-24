@@ -21,10 +21,49 @@ signs up.
 - **Serverless / scale-to-zero.** Runs on demand to keep idle cost near zero.
 - **Multi-tenant.** Built for one household first, designed so others can use it too.
 
-## Architecture (target)
+## Architecture
 
-.NET 10 + Aspire backend, React + Vite + shadcn/ui frontend, deployed to Azure
-Container Apps (scale-to-zero). See `ARCH.md` once the architecture phase completes.
+.NET 10 + Aspire backend, React + Vite + Tailwind (mobile-first PWA) frontend,
+deployed to Azure Container Apps (scale-to-zero). See [ARCH.md](ARCH.md),
+[DECISIONS.md](DECISIONS.md) (ADRs), and the C4 diagrams in `docs/diagrams/`.
+
+## Repository layout
+
+```
+src/
+  TheLedger.AppHost            Aspire orchestration (Postgres, Redis, API, Worker)
+  TheLedger.ServiceDefaults    OpenTelemetry, health checks, resilience
+  TheLedger.Api                Minimal APIs (/api/v1), auth, RBAC, idempotency, rate limiting
+  TheLedger.Worker             Outbox dispatcher + scheduled jobs
+  TheLedger.Domain             Entities + primitives ([Pii], ITenantOwned)
+  TheLedger.Application[.*]    Use-case contracts (Foundations: households, data-subject)
+  TheLedger.Infrastructure     EF Core DbContext, tenant query filters, audit interceptor
+tests/                         Domain unit tests + tenant-isolation tests (SQLite, no Docker)
+web/                           Vite + React + TS mobile-first PWA
+```
+
+## Local development
+
+```bash
+# Backend (needs Docker for the Aspire-managed Postgres + Redis)
+dotnet run --project src/TheLedger.AppHost      # opens the Aspire dashboard
+
+# Frontend
+cd web && npm install && npm run dev            # http://localhost:5173
+
+# Tests (no Docker required)
+dotnet test
+```
+
+Without a configured OIDC authority the API runs a header-driven **Dev** auth scheme:
+send `X-Dev-Tenant`, `X-Dev-User`, and `X-Dev-Role` to simulate a signed-in member.
+
+## Status
+
+**Stage 1 + architecture complete; Foundations implemented.** The Foundations epic
+(multi-tenancy, RBAC, audit, OTel, idempotency, rate limiting, GDPR/ARCO export+delete,
+mobile-first PWA shell) builds and its tenant-isolation tests pass. Remaining features
+are tracked as Ready issues on the [project board](https://github.com/users/abrahamFerga/projects/2).
 
 ## License
 
