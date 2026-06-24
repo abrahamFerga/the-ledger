@@ -1,10 +1,13 @@
 {
   "name": "the-ledger",
   "industry": "personal-finance",
-  "stage": "system-definition",
-  "cloud": "none",
-  "connectors": [],
-  "capabilities": [],
+  "stage": "architecture",
+  "cloud": "azure",
+  "connectors": ["email"],
+  "capabilities": [
+    { "name": "file-storage", "provider": "azure-blob" },
+    { "name": "llm", "provider": "azure-openai" }
+  ],
   "github": {
     "repo": "abrahamFerga/the-ledger",
     "project": 2,
@@ -16,6 +19,17 @@
       "repo": "abrahamFerga/my-skills",
       "plugins": ["workflow-core", "system-definition", "architecture", "development"]
     },
-    "external": []
+    "external": [
+      {
+        "marketplace": "dotnet/skills",
+        "plugins": ["dotnet", "dotnet-aspnet", "dotnet-data", "dotnet-ai"],
+        "reason": "Authoritative .NET coding-agent skills (Aspire wiring, ASP.NET Core minimal APIs, EF Core migrations, MAF / Azure OpenAI) used to build the backend in Stage 3."
+      },
+      {
+        "marketplace": "anthropics/skills",
+        "plugins": ["pdf"],
+        "reason": "PDF handling for parsing Mexican bank-statement PDFs and producing user data exports."
+      }
+    ]
   }
 }
