@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TheLedger.Application.Abstractions;
 using TheLedger.Application.Ledger;
 using TheLedger.Domain.Accounts;
+using TheLedger.Domain.Alerts;
 using TheLedger.Domain.Auditing;
 using TheLedger.Domain.Budgeting;
 using TheLedger.Domain.Categories;
@@ -38,6 +39,8 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<Goal> Goals => Set<Goal>();
+    public DbSet<Alert> Alerts => Set<Alert>();
+    public DbSet<RecurringSeries> RecurringSeries => Set<RecurringSeries>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -174,6 +177,26 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.Property(x => x.TargetAmount).HasPrecision(19, 4);
             e.Property(x => x.CurrentAmount).HasPrecision(19, 4);
             e.HasIndex(x => x.TenantId);
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Alert>(e =>
+        {
+            e.ToTable("alerts");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Message).HasMaxLength(500).IsRequired();
+            e.Property(x => x.DedupeKey).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Status });
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<RecurringSeries>(e =>
+        {
+            e.ToTable("recurring_series");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Merchant).HasMaxLength(100).IsRequired();
+            e.Property(x => x.ExpectedAmount).HasPrecision(19, 4);
+            e.HasIndex(x => new { x.TenantId, x.Merchant }).IsUnique();
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }
