@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TheLedger.Api/TheLedger.Api.csproj" />
+    <Project Path="src/TheLedger.AppHost/TheLedger.AppHost.csproj" />
+    <Project Path="src/TheLedger.Application.Foundations/TheLedger.Application.Foundations.csproj" />
+    <Project Path="src/TheLedger.Application/TheLedger.Application.csproj" />
+    <Project Path="src/TheLedger.Domain/TheLedger.Domain.csproj" />
+    <Project Path="src/TheLedger.Infrastructure/TheLedger.Infrastructure.csproj" />
+    <Project Path="src/TheLedger.ServiceDefaults/TheLedger.ServiceDefaults.csproj" />
+    <Project Path="src/TheLedger.Worker/TheLedger.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TheLedger.Domain.Tests/TheLedger.Domain.Tests.csproj" />
+    <Project Path="tests/TheLedger.IntegrationTests/TheLedger.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
