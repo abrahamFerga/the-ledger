@@ -32,6 +32,10 @@ public sealed class Statement : Entity, ITenantOwned, IAuditable
     public StatementStatus Status { get; set; } = StatementStatus.Uploaded;
     public Guid? UploadedByUserId { get; set; }
     public int TransactionCount { get; set; }
+
+    /// <summary>Result of the balance-reconciliation pass after parsing (Matched / Unverified / Mismatch).</summary>
+    public string? Reconciliation { get; set; }
+    public string? Bank { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 }
