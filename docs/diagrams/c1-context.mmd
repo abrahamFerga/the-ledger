@@ -1,0 +1,27 @@
+%% C4 L1 - System Context: the-ledger
+flowchart TB
+    owner["Owner<br/>(household admin)"]
+    member["Member<br/>(partner / family)"]
+    viewer["Viewer<br/>(read-only)"]
+    operator["Operator<br/>(self-host / instance admin)"]
+
+    subgraph sys [the-ledger]
+        ledger["Personal finance system<br/>PDF/CSV/manual ingestion, budgets,<br/>net worth, alerts, multi-tenant, mobile-first"]
+    end
+
+    idp["Entra External ID<br/>(OIDC identity)"]
+    openai["Azure OpenAI<br/>(statement extraction + categorization)"]
+    email["Email provider<br/>(alerts, invites, export-ready)"]
+    belvo["Belvo / Finerio<br/>(live MX aggregation - POST-V1)"]:::deferred
+
+    owner --> ledger
+    member --> ledger
+    viewer --> ledger
+    operator --> ledger
+
+    ledger -->|authenticates via| idp
+    ledger -->|extract + categorize| openai
+    ledger -->|sends notifications| email
+    ledger -.->|optional future connector| belvo
+
+    classDef deferred stroke-dasharray: 5 5,opacity:0.6;

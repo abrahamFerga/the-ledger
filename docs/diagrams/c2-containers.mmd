@@ -1,0 +1,34 @@
+%% C4 L2 - Containers: the-ledger (Azure Container Apps, scale-to-zero)
+flowchart TB
+    user(["Household user / Operator (browser, mobile-first PWA)"])
+
+    subgraph aca [Azure Container Apps environment]
+        spa["Web SPA<br/>React + Vite + TS + shadcn/Tailwind<br/>installable PWA"]
+        api["API service<br/>.NET 10 minimal APIs<br/>(scale-to-zero, min 0-1)"]
+        worker["Parse/Outbox Worker<br/>.NET worker, KEDA queue-scaled<br/>(statement parse, email, LLM calls)"]
+    end
+
+    pg[("PostgreSQL<br/>Flexible Server<br/>operational + audit + outbox")]
+    redis[("Azure Cache for Redis<br/>idempotency, rate-limit, sessions")]
+    blob[("Azure Blob Storage<br/>encrypted statement files")]
+    queue["Azure Storage Queue<br/>parse + outbox messages"]
+    openai["Azure OpenAI<br/>gpt-4o / extraction + categorization"]
+    idp["Entra External ID (CIAM)"]
+    kv["Azure Key Vault<br/>secrets (via Managed Identity)"]
+    email["Email connector<br/>(Azure Communication Services)"]
+
+    user -->|HTTPS| spa
+    spa -->|/api/v1 + OIDC token| api
+    user -->|OIDC login| idp
+    api -->|validate token| idp
+    api --> pg
+    api --> redis
+    api -->|store/read files| blob
+    api -->|enqueue parse / outbox| queue
+    worker -->|dequeue| queue
+    worker --> pg
+    worker -->|read PDF| blob
+    worker -->|extract + categorize| openai
+    worker -->|send| email
+    api -->|secrets| kv
+    worker -->|secrets| kv

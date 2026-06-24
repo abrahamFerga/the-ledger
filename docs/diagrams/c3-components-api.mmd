@@ -1,0 +1,49 @@
+%% C4 L3 - Components inside the API service
+flowchart TB
+    subgraph api [TheLedger.Api]
+        direction TB
+        mw["Middleware pipeline<br/>tenant resolver, auth, problem-details,<br/>idempotency, rate limiting, audit"]
+        subgraph groups [Endpoint groups - /api/v1]
+            g_house["/households /members /consent"]
+            g_acct["/accounts /transactions /categories"]
+            g_stmt["/statements"]
+            g_budg["/budgets /goals"]
+            g_ins["/insights /export"]
+            g_alert["/alerts"]
+            g_assist["/assistant (chatbot)"]
+            g_conn["/connectors"]
+        end
+    end
+
+    subgraph app [Application.<Context> handlers]
+        h_found["Foundations<br/>tenancy, RBAC, audit, export/delete"]
+        h_ing["Ingestion"]
+        h_ledger["Ledger + Categorization"]
+        h_budg["Budgeting"]
+        h_ins["Insights"]
+        h_alert["Alerts"]
+    end
+
+    subgraph agents [MAF agents]
+        a_assist["LedgerAssistant"]
+        a_extract["StatementExtractionAgent"]
+        a_cat["CategorizationAgent"]
+    end
+
+    subgraph infra [TheLedger.Infrastructure]
+        ef["EF Core DbContext<br/>+ tenant query filters + outbox"]
+        store["IFileStore (Blob)"]
+        redact["PII redaction"]
+        emailadp["IEmailSender"]
+    end
+
+    mw --> groups
+    groups --> app
+    h_ing --> a_extract
+    h_ledger --> a_cat
+    g_assist --> a_assist
+    a_extract --> redact --> openai["Azure OpenAI"]
+    a_cat --> redact
+    app --> ef
+    h_ing --> store
+    app --> emailadp
