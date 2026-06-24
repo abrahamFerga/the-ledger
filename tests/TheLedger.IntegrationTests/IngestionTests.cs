@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Csv;
 using TheLedger.Domain.Ledger;
+using TheLedger.Infrastructure.Categorization;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Services;
 using TheLedger.Infrastructure.Tenancy;
@@ -54,7 +55,7 @@ public class IngestionTests
 
         await using var ctx = NewContext(connection, tenant);
         await ctx.Database.EnsureCreatedAsync();
-        var svc = new IngestionService(ctx, tenant);
+        var svc = new IngestionService(ctx, tenant, new RuleCategorizer(ctx));
 
         var account = await svc.CreateAccountAsync(
             new CreateAccountRequest("BBVA Debito", "Checking", "BBVA", "MXN", "1234567812345678"), default);

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using TheLedger.Application.Abstractions;
+using TheLedger.Application.Ledger;
 using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Auditing;
+using TheLedger.Domain.Categories;
 using TheLedger.Domain.Consent;
 using TheLedger.Domain.Identity;
 using TheLedger.Domain.Ledger;
@@ -31,6 +33,8 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<Statement> Statements => Set<Statement>();
     public DbSet<StatementFile> StatementFiles => Set<StatementFile>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -120,6 +124,33 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.Property(x => x.Currency).HasMaxLength(3);
             e.HasIndex(x => new { x.TenantId, x.AccountId, x.Date });
             e.HasIndex(x => new { x.TenantId, x.IsConfirmed });
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Category>(e =>
+        {
+            e.ToTable("categories");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Name });
+            // System categories (TenantId empty) are visible to every tenant alongside its own.
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId || x.TenantId == Guid.Empty);
+            e.HasData(SystemCategories.All.Select(c => new Category
+            {
+                Id = c.Id,
+                TenantId = Guid.Empty,
+                Name = c.Name,
+                Kind = c.Kind,
+                IsSystem = true,
+            }));
+        });
+
+        b.Entity<CategorizationRule>(e =>
+        {
+            e.ToTable("categorization_rules");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.MatchPattern).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Priority });
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }

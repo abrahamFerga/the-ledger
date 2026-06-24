@@ -58,6 +58,7 @@ app.UseMiddleware<IdempotencyMiddleware>();
 app.MapDefaultEndpoints();
 app.MapFoundations();
 app.MapIngestion();
+app.MapLedger();
 
 // Dev convenience: create the schema if a database is reachable. Replaced by EF migrations (follow-up).
 if (app.Environment.IsDevelopment())
