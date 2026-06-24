@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TheLedger.Api/TheLedger.Api.csproj" />
     <Project Path="src/TheLedger.AppHost/TheLedger.AppHost.csproj" />
+    <Project Path="src/TheLedger.Application.Budgeting/TheLedger.Application.Budgeting.csproj" />
     <Project Path="src/TheLedger.Application.Foundations/TheLedger.Application.Foundations.csproj" />
     <Project Path="src/TheLedger.Application.Ingestion/TheLedger.Application.Ingestion.csproj" />
     <Project Path="src/TheLedger.Application.Ledger/TheLedger.Application.Ledger.csproj" />

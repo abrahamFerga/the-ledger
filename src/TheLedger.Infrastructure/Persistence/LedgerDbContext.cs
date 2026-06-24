@@ -3,6 +3,7 @@ using TheLedger.Application.Abstractions;
 using TheLedger.Application.Ledger;
 using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Auditing;
+using TheLedger.Domain.Budgeting;
 using TheLedger.Domain.Categories;
 using TheLedger.Domain.Consent;
 using TheLedger.Domain.Identity;
@@ -35,6 +36,7 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
+    public DbSet<Budget> Budgets => Set<Budget>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -151,6 +153,15 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.HasKey(x => x.Id);
             e.Property(x => x.MatchPattern).HasMaxLength(100).IsRequired();
             e.HasIndex(x => new { x.TenantId, x.Priority });
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Budget>(e =>
+        {
+            e.ToTable("budgets");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TargetAmount).HasPrecision(19, 4);
+            e.HasIndex(x => new { x.TenantId, x.CategoryId, x.PeriodMonth }).IsUnique();
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }
