@@ -22,6 +22,9 @@ public static class LedgerEndpoints
         transactions.MapPost("/{id:guid}/split", async (Guid id, SplitTransactionRequest req, ILedgerService svc, CancellationToken ct) =>
                 Results.Ok(await svc.SplitTransactionAsync(id, req, ct)))
             .RequireAuthorization(Policies.TransactionsEdit);
+        transactions.MapPost("/{id:guid}/attribute", async (Guid id, AttributeTransactionRequest req, ILedgerService svc, CancellationToken ct) =>
+                await svc.AttributeTransactionAsync(id, req.MemberUserId, ct) is { } dto ? Results.Ok(dto) : Results.NotFound())
+            .RequireAuthorization(Policies.TransactionsEdit);
 
         var categories = v1.MapGroup("/categories").WithTags("Categories");
         categories.MapGet("/", async (ILedgerService svc, CancellationToken ct) =>
