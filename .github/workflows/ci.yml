@@ -14,7 +14,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet build -c Release
-      - run: dotnet test -c Release --no-build
+      # Exclude the Docker-backed Aspire boot test (TheLedger.AppHost.Tests) — it is a slow,
+      # container-dependent local/on-demand smoke test, not a blocking gate.
+      - run: dotnet test -c Release --no-build --filter "FullyQualifiedName!~AppHost"
 
   web:
     runs-on: ubuntu-latest
