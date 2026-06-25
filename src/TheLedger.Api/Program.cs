@@ -64,18 +64,18 @@ app.MapGoals();
 app.MapInsights();
 app.MapAlerts();
 
-// Dev convenience: create the schema if a database is reachable. Replaced by EF migrations (follow-up).
+// Apply EF Core migrations on startup in development when a database is reachable.
 if (app.Environment.IsDevelopment())
 {
     try
     {
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.MigrateAsync();
     }
     catch (Exception ex)
     {
-        app.Logger.LogWarning(ex, "Skipped database EnsureCreated (no database reachable yet).");
+        app.Logger.LogWarning(ex, "Skipped database migration (no database reachable yet).");
     }
 }
 
