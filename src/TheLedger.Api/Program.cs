@@ -74,16 +74,12 @@ app.MapGoals();
 app.MapInsights();
 app.MapAlerts();
 
-// Apply EF Core migrations on startup (idempotent; skipped if no database is reachable).
-try
+// Apply EF Core migrations on startup. A failure here is fatal: fail loudly (and let Aspire restart
+// the resource) rather than silently serving 500s against a missing schema (#45).
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
     await db.Database.MigrateAsync();
-}
-catch (Exception ex)
-{
-    app.Logger.LogWarning(ex, "Skipped database migration (no database reachable).");
 }
 
 app.Run();
