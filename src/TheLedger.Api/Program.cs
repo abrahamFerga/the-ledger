@@ -4,6 +4,7 @@ using TheLedger.Api.Idempotency;
 using TheLedger.Api.Setup;
 using TheLedger.Api.Tenancy;
 using TheLedger.Infrastructure;
+using TheLedger.Infrastructure.Azure;
 using TheLedger.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,9 @@ builder.AddRedisDistributedCache("cache");
 var connectionString = builder.Configuration.GetConnectionString("ledgerdb")
     ?? "Host=localhost;Port=5432;Database=ledgerdb;Username=postgres;Password=postgres";
 builder.Services.AddInfrastructure(connectionString);
+
+// Azure OpenAI IChatClient for LLM categorization (registered only when configured; ADR-0004).
+builder.Services.AddAzureAiCategorization(builder.Configuration);
 
 // AuthN (OIDC / Dev) + RBAC policies.
 builder.AddLedgerAuth();
