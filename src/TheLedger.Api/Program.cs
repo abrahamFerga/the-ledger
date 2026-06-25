@@ -26,6 +26,9 @@ builder.Services.AddAzureAiCategorization(builder.Configuration);
 // Email connector (Azure Communication Services) — registered only when configured (feature #34).
 builder.Services.AddAcsEmail(builder.Configuration);
 
+// Azure Blob statement storage — registered only when configured; defaults to the DB store (feature #35).
+builder.Services.AddAzureBlobStorage(builder.Configuration);
+
 // AuthN (OIDC / Dev) + RBAC policies.
 builder.AddLedgerAuth();
 

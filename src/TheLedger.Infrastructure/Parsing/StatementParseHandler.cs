@@ -2,9 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Extraction;
+using TheLedger.Application.Storage;
 using TheLedger.Domain.Ledger;
 using TheLedger.Domain.Statements;
 using TheLedger.Infrastructure.Persistence;
+using TheLedger.Infrastructure.Storage;
 
 namespace TheLedger.Infrastructure.Parsing;
 
@@ -18,8 +20,15 @@ public sealed class StatementParseHandler(
     LedgerDbContext db,
     IPdfTextExtractor pdf,
     IStatementExtractor extractor,
-    ILogger<StatementParseHandler> logger)
+    ILogger<StatementParseHandler> logger,
+    IFileStore fileStore)
 {
+    // Convenience overload for tests / non-DI callers: defaults to the DB-backed file store.
+    public StatementParseHandler(LedgerDbContext db, IPdfTextExtractor pdf, IStatementExtractor extractor, ILogger<StatementParseHandler> logger)
+        : this(db, pdf, extractor, logger, new DbFileStore(db))
+    {
+    }
+
     public async Task HandleAsync(Guid statementId, CancellationToken ct)
     {
         var statement = await db.Statements.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == statementId, ct);
@@ -34,9 +43,8 @@ public sealed class StatementParseHandler(
 
         try
         {
-            var file = await db.StatementFiles.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(f => f.StatementId == statementId, ct);
-            if (file is null)
+            var content = await fileStore.GetAsync(statement.Id.ToString(), ct);
+            if (content is null)
             {
                 statement.Status = StatementStatus.Failed;
                 await db.SaveChangesAsync(ct);
@@ -47,7 +55,7 @@ public sealed class StatementParseHandler(
             var account = await db.Accounts.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(a => a.Id == statement.AccountId, ct);
 
-            var text = pdf.ExtractText(file.Content);
+            var text = pdf.ExtractText(content);
             var result = await extractor.ExtractAsync(text, account?.Institution, ct);
             var reconciliation = StatementReconciler.Reconcile(result);
 
