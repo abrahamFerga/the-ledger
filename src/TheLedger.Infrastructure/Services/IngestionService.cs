@@ -3,16 +3,24 @@ using TheLedger.Application.Abstractions;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Csv;
 using TheLedger.Application.Ledger;
+using TheLedger.Application.Storage;
 using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Ledger;
 using TheLedger.Domain.Outbox;
 using TheLedger.Domain.Statements;
 using TheLedger.Infrastructure.Persistence;
+using TheLedger.Infrastructure.Storage;
 
 namespace TheLedger.Infrastructure.Services;
 
-public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant, ICategorizer categorizer) : IIngestionService
+public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant, ICategorizer categorizer, IFileStore fileStore) : IIngestionService
 {
+    // Convenience overload for tests / non-DI callers: defaults to the DB-backed file store.
+    public IngestionService(LedgerDbContext db, ITenantContext tenant, ICategorizer categorizer)
+        : this(db, tenant, categorizer, new DbFileStore(db))
+    {
+    }
+
     public async Task<AccountDto> CreateAccountAsync(CreateAccountRequest request, CancellationToken ct)
     {
         var account = new Account
@@ -120,14 +128,6 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant, 
         };
         db.Statements.Add(statement);
 
-        db.StatementFiles.Add(new StatementFile
-        {
-            Id = Guid.CreateVersion7(),
-            StatementId = statement.Id,
-            Content = content,
-            ContentType = "application/pdf",
-        });
-
         db.Outbox.Add(new OutboxMessage
         {
             Id = Guid.CreateVersion7(),
@@ -138,6 +138,7 @@ public sealed class IngestionService(LedgerDbContext db, ITenantContext tenant, 
         });
 
         await db.SaveChangesAsync(ct);
+        await fileStore.SaveAsync(statement.Id.ToString(), content, ct); // DB or Azure Blob
         return ToDto(statement);
     }
 

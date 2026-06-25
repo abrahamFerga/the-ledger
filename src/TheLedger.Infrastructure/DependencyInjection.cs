@@ -10,8 +10,10 @@ using TheLedger.Application.Ingestion.Extraction;
 using TheLedger.Application.Insights;
 using TheLedger.Application.Ledger;
 using TheLedger.Application.Notifications;
+using TheLedger.Application.Storage;
 using TheLedger.Infrastructure.Categorization;
 using TheLedger.Infrastructure.Notifications;
+using TheLedger.Infrastructure.Storage;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Services;
@@ -64,6 +66,9 @@ public static class DependencyInjection
 
         // Default email sender (feature #34); replaced by the ACS connector when configured.
         services.AddScoped<IEmailSender, NoOpEmailSender>();
+
+        // Default file store (feature #35): statement bytes in the DB; replaced by Azure Blob when configured.
+        services.AddScoped<IFileStore, DbFileStore>();
         return services;
     }
 }
