@@ -21,7 +21,8 @@ public class AppHostHealthTests
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
         await app.ResourceNotifications.WaitForResourceHealthyAsync("api", cts.Token);
 
-        var http = app.CreateHttpClient("api");
+        // Target the HTTP endpoint: the dev HTTPS cert is untrusted on CI runners.
+        var http = app.CreateHttpClient("api", "http");
         var health = await http.GetAsync("/health", cts.Token);
         Assert.Equal(HttpStatusCode.OK, health.StatusCode);
 

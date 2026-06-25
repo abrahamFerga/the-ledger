@@ -3,9 +3,12 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Warnings-as-errors deferred to CI hardening; off here so the bootstrap builds clean. -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisLevel>latest-minimum</AnalysisLevel>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <!-- Treat warnings as errors in Release (feature #37). -->
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+    <!-- Suppress advisory NuGet/analyzer warnings so warnings-as-errors catches real (CS) issues:
+         NU1903 transitive SQLite advisory (no fixed version); CA1859/CA1861/CA1862/CA1873 are
+         opinionated perf/style suggestions (CA1861 only fires in EF-generated migration code). -->
+    <NoWarn>$(NoWarn);NU1903;CA1859;CA1861;CA1862;CA1873</NoWarn>
   </PropertyGroup>
 </Project>
