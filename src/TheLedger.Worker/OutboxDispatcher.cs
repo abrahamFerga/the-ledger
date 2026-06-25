@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using TheLedger.Application.Notifications;
 using TheLedger.Domain.Outbox;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
@@ -25,6 +27,7 @@ public sealed class OutboxDispatcher(
                 using var scope = scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
                 var parseHandler = scope.ServiceProvider.GetRequiredService<StatementParseHandler>();
+                var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
                 var pending = await db.Outbox
                     .Where(m => m.Status == OutboxStatus.Pending)
@@ -40,8 +43,15 @@ public sealed class OutboxDispatcher(
                         {
                             await parseHandler.HandleAsync(statementId, stoppingToken);
                         }
+                        else if (message.Type == "email")
+                        {
+                            var email = JsonSerializer.Deserialize<EmailMessage>(message.Payload);
+                            if (email is not null)
+                            {
+                                await emailSender.SendAsync(email, stoppingToken);
+                            }
+                        }
 
-                        // TODO(epics Alerts/AI): route email + llm-categorize types here too.
                         message.Status = OutboxStatus.Done;
                         message.ProcessedAt = DateTimeOffset.UtcNow;
                         logger.LogInformation("Dispatched outbox message {Id} ({Type})", message.Id, message.Type);

@@ -23,6 +23,9 @@ builder.Services.AddInfrastructure(connectionString);
 // Azure OpenAI IChatClient for LLM categorization (registered only when configured; ADR-0004).
 builder.Services.AddAzureAiCategorization(builder.Configuration);
 
+// Email connector (Azure Communication Services) — registered only when configured (feature #34).
+builder.Services.AddAcsEmail(builder.Configuration);
+
 // AuthN (OIDC / Dev) + RBAC policies.
 builder.AddLedgerAuth();
 

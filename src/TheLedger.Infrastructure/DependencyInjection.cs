@@ -9,7 +9,9 @@ using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Extraction;
 using TheLedger.Application.Insights;
 using TheLedger.Application.Ledger;
+using TheLedger.Application.Notifications;
 using TheLedger.Infrastructure.Categorization;
+using TheLedger.Infrastructure.Notifications;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Services;
@@ -59,6 +61,9 @@ public static class DependencyInjection
         // Alerts: recurring detection + anomalies (feature #17).
         services.AddScoped<IAlertService, AlertService>();
         services.AddScoped<IAlertScanner, Alerts.AlertScanner>();
+
+        // Default email sender (feature #34); replaced by the ACS connector when configured.
+        services.AddScoped<IEmailSender, NoOpEmailSender>();
         return services;
     }
 }
