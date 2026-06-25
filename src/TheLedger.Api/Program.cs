@@ -74,19 +74,16 @@ app.MapGoals();
 app.MapInsights();
 app.MapAlerts();
 
-// Apply EF Core migrations on startup in development when a database is reachable.
-if (app.Environment.IsDevelopment())
+// Apply EF Core migrations on startup (idempotent; skipped if no database is reachable).
+try
 {
-    try
-    {
-        using var scope = app.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
-        await db.Database.MigrateAsync();
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogWarning(ex, "Skipped database migration (no database reachable yet).");
-    }
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+    await db.Database.MigrateAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Skipped database migration (no database reachable).");
 }
 
 app.Run();
