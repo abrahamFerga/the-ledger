@@ -7,6 +7,7 @@ using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Extraction;
+using TheLedger.Application.Ingestion.Receipts;
 using TheLedger.Application.Insights;
 using TheLedger.Application.Ledger;
 using TheLedger.Application.Notifications;
@@ -16,6 +17,7 @@ using TheLedger.Infrastructure.Notifications;
 using TheLedger.Infrastructure.Storage;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
+using TheLedger.Infrastructure.Receipts;
 using TheLedger.Infrastructure.Services;
 using TheLedger.Infrastructure.Tenancy;
 
@@ -47,6 +49,15 @@ public static class DependencyInjection
         services.AddScoped<IPdfTextExtractor, Utf8TextExtractor>();
         services.AddScoped<IStatementExtractor, HeuristicStatementExtractor>();
         services.AddScoped<StatementParseHandler>();
+
+        // Receipt/ticket OCR capture (feature #49, ADR-0009). The deterministic fake extractor is the
+        // offline/CI default; the Azure Document Intelligence prebuilt-receipt adapter swaps in behind
+        // IReceiptExtractor when configured (mirrors the email/blob/LLM dev fallbacks). OCR runs in the
+        // worker off the receipt.parse outbox; normalization reuses the existing ICategorizer.
+        services.AddScoped<IReceiptExtractor, FakeReceiptExtractor>();
+        services.AddScoped<ReceiptNormalizationAgent>();
+        services.AddScoped<ReceiptParseHandler>();
+        services.AddScoped<IReceiptIngestionService, ReceiptIngestionService>();
 
         // Ledger + categorization (features #13, #18). CompositeCategorizer runs rules first, then the
         // LLM (ADR-0004) when an IChatClient is configured; otherwise it stays rules-only.

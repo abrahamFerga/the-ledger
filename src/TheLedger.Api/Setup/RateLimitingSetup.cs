@@ -5,6 +5,9 @@ namespace TheLedger.Api.Setup;
 
 public static class RateLimitingSetup
 {
+    /// <summary>Named per-endpoint limiter for uploads (statements + receipts): stricter than the global bucket.</summary>
+    public const string UploadPolicy = "uploads";
+
     /// <summary>Per-tenant fixed-window limiter (falls back to client IP for unauthenticated calls).</summary>
     public static IServiceCollection AddLedgerRateLimiting(this IServiceCollection services)
     {
@@ -20,6 +23,21 @@ public static class RateLimitingSetup
                 return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = 100,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                });
+            });
+
+            // Uploads are heavy (blob write + worker OCR/parse): 10/min per tenant (ARCH API surface).
+            options.AddPolicy(UploadPolicy, ctx =>
+            {
+                var partitionKey = ctx.User.FindFirst("tenant_id")?.Value
+                                   ?? ctx.Connection.RemoteIpAddress?.ToString()
+                                   ?? "anonymous";
+
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 });

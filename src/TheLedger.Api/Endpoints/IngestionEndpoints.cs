@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using TheLedger.Api.Setup;
 using TheLedger.Application.Authorization;
 using TheLedger.Application.Ingestion;
+using TheLedger.Application.Ingestion.Receipts;
 
 namespace TheLedger.Api.Endpoints;
 
@@ -38,9 +40,29 @@ public static class IngestionEndpoints
                 return Results.Ok(await svc.UploadPdfAsync(accountId, file.FileName, ms.ToArray(), ct));
             })
             .RequireAuthorization(Policies.StatementsUpload)
+            .RequireRateLimiting(RateLimitingSetup.UploadPolicy)
             .DisableAntiforgery();
         statements.MapPost("/{statementId:guid}/confirm", async (Guid statementId, IIngestionService svc, CancellationToken ct) =>
                 Results.Ok(await svc.ConfirmStatementAsync(statementId, ct)))
             .RequireAuthorization(Policies.TransactionsEdit);
+
+        // Receipt/ticket capture (feature #49, ADR-0009): snap a photo → staged transaction via OCR.
+        // Multipart image upload stores the image (IFileStore) + raises an outbox message; the worker
+        // runs Document Intelligence → normalization → a staged transaction in the review queue.
+        var receipts = v1.MapGroup("/receipts").WithTags("Receipts");
+        receipts.MapPost("/", async (
+                IFormFile file, [FromForm] Guid accountId, IReceiptIngestionService svc, CancellationToken ct) =>
+            {
+                using var ms = new MemoryStream();
+                await file.CopyToAsync(ms, ct);
+                var dto = await svc.UploadAsync(accountId, file.FileName, file.ContentType, ms.ToArray(), ct);
+                return Results.Accepted($"/api/v1/receipts/{dto.Id}", dto);
+            })
+            .RequireAuthorization(Policies.StatementsUpload)
+            .RequireRateLimiting(RateLimitingSetup.UploadPolicy)
+            .DisableAntiforgery();
+        receipts.MapGet("/", async (IReceiptIngestionService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListAsync(ct)))
+            .RequireAuthorization(Policies.TransactionsView);
     }
 }

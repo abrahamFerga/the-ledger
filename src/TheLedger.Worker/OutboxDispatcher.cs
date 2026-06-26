@@ -4,6 +4,8 @@ using TheLedger.Application.Notifications;
 using TheLedger.Domain.Outbox;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
+using TheLedger.Infrastructure.Receipts;
+using TheLedger.Infrastructure.Services;
 
 namespace TheLedger.Worker;
 
@@ -27,6 +29,7 @@ public sealed class OutboxDispatcher(
                 using var scope = scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
                 var parseHandler = scope.ServiceProvider.GetRequiredService<StatementParseHandler>();
+                var receiptHandler = scope.ServiceProvider.GetRequiredService<ReceiptParseHandler>();
                 var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
                 var pending = await db.Outbox
@@ -42,6 +45,10 @@ public sealed class OutboxDispatcher(
                         if (message.Type == "statement.parse" && Guid.TryParse(message.Payload, out var statementId))
                         {
                             await parseHandler.HandleAsync(statementId, stoppingToken);
+                        }
+                        else if (message.Type == ReceiptIngestionService.OutboxType && Guid.TryParse(message.Payload, out var receiptId))
+                        {
+                            await receiptHandler.HandleAsync(receiptId, stoppingToken);
                         }
                         else if (message.Type == "email")
                         {
