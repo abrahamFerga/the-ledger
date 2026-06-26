@@ -16,8 +16,9 @@
 6. **Alerts & Recurring** — **recurring-transaction detection** (salary, subscriptions), **upcoming-bill reminders**, and **anomaly alerts** (duplicate charge, new fee, low balance, unusual spend), delivered **in-app + email**. Capabilities (from SPEC): *Recurring detection, bills & anomaly alerts*. Depends on: Ledger; uses Foundations outbox + email connector.
 7. **AI Categorization** *(differentiator)* — **LLM-forward** categorization tuned for Mexican-Spanish merchant strings, with **PII redaction before any external model call**, a rules fast-path to cap cost, and learning from user corrections. Capabilities (from SPEC): differentiator *AI-assisted categorization for Mexican-Spanish merchants*. Depends on: Ledger & Categorization (replaces/augments the rules categorizer behind the same interface).
 8. **Shared Household** *(differentiator)* — the collaborative layer on top of Foundations' tenancy: **joint budgets**, **per-member transaction attribution**, **shared goals**, and a shared household view with separate logins. Capabilities (from SPEC): differentiator *Shared household finances*. Depends on: Foundations (tenancy/roles), Budgets & Goals.
+9. **AI Capture & Channels** *(differentiator — added v1.1)* — the effortless-data-entry layer so a user introduces data without a keyboard. Three capture surfaces, all landing in the existing review-and-confirm queue (epic 2) with card-masking + PII redaction before persistence, and all external OCR/LLM calls routed through the **outbox**: (a) **Receipt/ticket scanning** — snap a photo of a Mexican store *ticket* and have **Azure Document Intelligence** (`prebuilt-receipt`) OCR it into a staged transaction (merchant, date, total, line items, tax), with the LLM normalizing merchant strings; (b) **WhatsApp capture & alerts** — a WhatsApp Business number that accepts a receipt photo *or* a natural-language message ("gasté 200 en el Oxxo") and turns it into a staged transaction, plus outbound bill/anomaly/export-ready notifications over the same channel; (c) **AI natural-language quick-add** — type/dictate "comí 350 en restaurante ayer" anywhere in the SPA and the LLM parses it to a transaction draft. Capabilities (new in v1.1): *Receipt/ticket scanning (Azure Document Intelligence)*, *WhatsApp capture & alerts*, *AI natural-language quick-add*. Depends on: Ingestion (review queue), Ledger (transactions + categorization), Alerts (outbound channel), Foundations (connector registry, outbox, consent — explicit LLM/third-party opt-in per user).
 
-Every must-have and differentiator capability in SPEC appears in exactly one epic above; none invented, none dropped.
+Every must-have and differentiator capability in SPEC (plus the v1.1 capture additions in epic 9) appears in exactly one epic above; none invented, none dropped.
 
 ## Module list
 
@@ -27,7 +28,9 @@ Every must-have and differentiator capability in SPEC appears in exactly one epi
 | `TheLedger.ServiceDefaults` | (observability/resilience) | cross-cutting | dotnet-aspire-base, aspire |
 | `TheLedger.Domain` | (all contexts' entities) | all | entity-framework-core |
 | `TheLedger.Application.Foundations` | foundations | Multi-tenant household accounts; audit; GDPR/ARCO export+delete; RBAC | dotnet-aspire-base, entity-framework-core |
-| `TheLedger.Application.Ingestion` | ingestion | Statement & transaction ingestion; MX PDF parsing | agent-framework-csharp, anthropic-skills:pdf, entity-framework-core |
+| `TheLedger.Application.Ingestion` | ingestion | Statement & transaction ingestion; MX PDF parsing; receipt/ticket OCR (Document Intelligence); NL quick-add | agent-framework-csharp, anthropic-skills:pdf, entity-framework-core |
+| `TheLedger.Infrastructure.Azure` | (azure adapters) | Blob storage; Azure OpenAI; **Azure Document Intelligence** `prebuilt-receipt` adapter | aspire, entity-framework-core |
+| `TheLedger.Infrastructure` (connectors) | (channel adapters) | email; **WhatsApp** connector (inbound webhook + outbound send) | pluggable-connectors |
 | `TheLedger.Application.Ledger` | ledger | Unified accounts & ledger; auto-categorization | entity-framework-core, agent-framework-csharp |
 | `TheLedger.Application.Budgeting` | budgeting | Flexible category budgets; goals | entity-framework-core |
 | `TheLedger.Application.Insights` | insights | Net worth; spending insights; reports/export | entity-framework-core |
@@ -78,6 +81,7 @@ Connectors are declared in `workflow.json` during compose (Phase 6); this is the
 | Connector | Direction | Purpose | Webhook routes | Per-tenant config |
 |---|---|---|---|---|
 | `email` | outbound | Member invitations + alert/bill/export-ready notifications | — (outbound only) | sender display name, reply-to |
+| `whatsapp` *(v1.1)* | inbound + outbound | Receipt-photo & NL-text capture → staged transactions; outbound bill/anomaly/export-ready alerts | `/api/v1/connectors/whatsapp/webhook` (GET verify + POST receive) | business phone-number id, app secret (HMAC verify), per-user opt-in |
 | `belvo` *(deferred, post-v1)* | inbound | Live Mexican bank aggregation as an optional paid connector | `/api/v1/connectors/belvo/webhook/...` | institution links, consent token (per user) |
 
 > Statement upload is a first-party user action, not a connector. Belvo is listed
@@ -93,7 +97,10 @@ Single in-process scheduler (guardrail). External side effects go through the **
 | AI categorization of new/low-confidence transactions | reactive | on transactions staged | **yes** (external LLM call) |
 | Recurring-series detection | reactive + scheduled | on new transactions; nightly sweep | no |
 | Anomaly/alert evaluation | reactive | on new transactions | no (alert row); **yes** to send the email |
-| Bill-due reminders | scheduled | daily | **yes** (email) |
+| Bill-due reminders | scheduled | daily | **yes** (email + WhatsApp) |
+| Receipt OCR (Document Intelligence extract → stage transaction) | reactive | on receipt upload / WhatsApp media | **yes** (external OCR + LLM normalize) |
+| WhatsApp inbound capture (media/NL-text → staged transaction) | reactive | on webhook POST | **yes** (OCR/LLM call) |
+| WhatsApp outbound alert send | reactive | on alert raised | **yes** |
 | Net-worth daily snapshot | scheduled | daily | no |
 | GDPR/ARCO data export build | reactive | on request | **yes** (email "export ready") |
 | Tenant data deletion | reactive | on request | no |

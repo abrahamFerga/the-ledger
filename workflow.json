@@ -3,10 +3,11 @@
   "industry": "personal-finance",
   "stage": "development",
   "cloud": "azure",
-  "connectors": ["email"],
+  "connectors": ["email", "whatsapp"],
   "capabilities": [
     { "name": "file-storage", "provider": "azure-blob" },
-    { "name": "llm", "provider": "azure-openai" }
+    { "name": "llm", "provider": "azure-openai" },
+    { "name": "document-intelligence", "provider": "azure-document-intelligence" }
   ],
   "github": {
     "repo": "abrahamFerga/the-ledger",
