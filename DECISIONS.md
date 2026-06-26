@@ -204,3 +204,80 @@ We will **not provision a vector store** in v1. Merchant→category memory lives
 
 - **Provision pgvector now** — guardrail default. Rejected: no v1 consumer; YAGNI.
 - **External vector DB (Pinecone/Azure AI Search)** — managed. Rejected: unnecessary cost + vendor for a non-existent v1 need.
+
+## ADR-0009: Receipt/ticket OCR via Azure Document Intelligence `prebuilt-receipt`
+
+- **Status**: accepted
+- **Date**: 2026-06-26
+- **Deciders**: Architecture (Stage 2)
+
+### Context
+
+Epic 9 (v1.1) lets a user snap a photo of a Mexican store *ticket*/receipt and have it become a transaction. This is **layout/structured extraction** from a photo (merchant, date, total, tax, line items), not free-text classification. ADR-0004 already noted Document Intelligence is the right tool for layout extraction (and the wrong one for merchant categorization). Affects ARCH.md *Containers*, *MAF agents*, and feature #49. The capability is declared in `workflow.json` as `document-intelligence` (provider `azure-document-intelligence`).
+
+### Decision
+
+We will use **Azure AI Document Intelligence** with the **`prebuilt-receipt`** model for receipt/ticket OCR, behind an `IReceiptExtractor` interface in `Application.Ingestion` with the Azure implementation in `Infrastructure.Azure`. OCR runs in the Worker via the outbox; a deterministic fake `IReceiptExtractor` backs dev/tests so CI needs no Azure dependency. The structured result is normalized (merchant string + category) by the `ReceiptNormalizationAgent` reusing `ICategorizer`, then lands as a *staged* transaction in the existing review-and-confirm queue.
+
+### Consequences
+
+- **Positive**: a managed, pre-trained receipt model — no training data or custom-model lifecycle; high-quality field extraction including line items + tax; keeps the LLM for what it's good at (merchant normalization, categorization).
+- **Negative**: a second Azure AI dependency + per-page cost → bounded by user-initiated capture and the outbox/worker async path; another Key Vault secret + Managed Identity grant.
+- **Neutral**: receipts can contain a partial card PAN → the same masking/redaction as statement ingestion applies before persistence (ADR-0002).
+
+### Alternatives considered
+
+- **General OCR + LLM parse (Azure OpenAI vision / `prebuilt-read` + prompt)** — fewer services. Rejected as primary: lower structured accuracy on receipts (totals/line items/tax) than the purpose-built receipt model; reserved as a fallback if a receipt fails the receipt model.
+- **Custom Document Intelligence model trained per Mexican chain** — highest accuracy on specific tickets. Rejected for v1.1: training-data + model-lifecycle cost; `prebuilt-receipt` already handles Spanish/MXN receipts; revisit only if a specific high-volume chain underperforms.
+- **Tesseract / open-source OCR self-hosted** — no per-call cost. Rejected: worse accuracy, no structured receipt schema, more ops on a scale-to-zero budget.
+
+## ADR-0010: WhatsApp capture via the Meta WhatsApp Business Cloud API behind the connector contract
+
+- **Status**: accepted
+- **Date**: 2026-06-26
+- **Deciders**: Architecture (Stage 2)
+
+### Context
+
+Epic 9 (v1.1) adds a WhatsApp number that ingests a receipt photo or a natural-language message into a staged transaction and pushes alerts outbound. WhatsApp is the dominant messaging channel in Mexico, so it's the highest-leverage "introduce data easily" surface. It must fit the existing `pluggable-connectors` registry and the outbox. Affects ARCH.md *Containers*, *Cross-cutting wiring*, *API surface*, and feature #50. Declared in `workflow.json` as the `whatsapp` connector.
+
+### Decision
+
+We will integrate WhatsApp via the **Meta WhatsApp Business Cloud API** directly, implemented as `Infrastructure.Connectors.WhatsApp` and registered through the existing `ConnectorRegistry` as an `IChannel`. Inbound is a webhook: `GET /connectors/whatsapp/webhook` answers the subscription verify challenge; `POST` validates the `X-Hub-Signature-256` HMAC of the raw body against the app secret (Key Vault) before processing, dedupes on the WhatsApp message id, resolves the sender phone to an opted-in `User`, and routes media → `IReceiptExtractor` / text → `QuickAddParserAgent`. Outbound send is an `IWhatsAppSender` driven through the outbox; a fake sender backs dev/tests. Unknown senders get a generic help reply — never tenant data.
+
+### Consequences
+
+- **Positive**: first-party, well-documented webhook + send API; no extra reseller margin; HMAC-verified inbound; reuses the connector registry, outbox, OCR, and NL-parse already built — small net-new surface.
+- **Negative**: Meta app review + a WhatsApp Business Account/number provisioning step (ops, not code); 24-hour customer-service-window rules for free-form outbound → bill/anomaly alerts outside the window must use pre-approved message templates.
+- **Neutral**: the `IChannel`/`IWhatsAppSender` abstraction keeps the provider swappable (e.g. to ACS Advanced Messaging or Twilio) without touching handlers.
+
+### Alternatives considered
+
+- **Azure Communication Services Advanced Messaging (WhatsApp)** — Azure-native, consistent with the ACS email connector, Managed Identity. Rejected as the v1.1 default: inbound arrives via Event Grid (more moving parts than a single verified webhook) and the WhatsApp channel is newer/less battle-tested; kept as the most likely future swap given we already use ACS.
+- **Twilio WhatsApp** — excellent DX, fast onboarding. Rejected: an extra vendor + per-message reseller cost when the first-party Cloud API is free-tier and direct.
+- **No WhatsApp; web/PWA capture only** — least surface. Rejected: WhatsApp is the explicit ask and the highest-adoption capture channel for the Mexican market.
+
+## ADR-0011: Natural-language quick-add via the existing chat client, structured output, confirm-before-persist
+
+- **Status**: accepted
+- **Date**: 2026-06-26
+- **Deciders**: Architecture (Stage 2)
+
+### Context
+
+Epic 9 (v1.1) lets a user type or dictate "comí 350 en restaurante ayer" and get a transaction draft, in the SPA and via inbound WhatsApp text. This is free-text → structured intent, the LLM's strength, and the same Azure OpenAI client already wired for categorization. Affects ARCH.md *MAF agents*, *API surface*, and feature #51. The risk is a wrong parse silently writing a bad transaction.
+
+### Decision
+
+We will implement an `INaturalLanguageTransactionParser` (the `QuickAddParserAgent`, MAF + the existing Azure OpenAI `IChatClient`) returning a **schema-validated** draft `{amount, currency, date, direction, merchant, categoryId, confidence}`, with dates resolved relative to *today* in **America/Mexico_City**. The draft is **always surfaced for explicit user confirmation** before it persists — no silent writes, on either the web or WhatsApp path. PII is redacted before the call; the feature is gated on the existing LLM opt-in consent; a deterministic fake parser backs dev/tests.
+
+### Consequences
+
+- **Positive**: the single lowest-friction data-entry path; reuses the existing model wiring and redaction; one parser shared by the SPA quick-add bar and WhatsApp text.
+- **Negative**: LLM parse can be wrong (amount/date/direction) → mitigated by mandatory confirm + a visible confidence + easy edit; relative-date resolution must pin the MX timezone to avoid off-by-one.
+- **Neutral**: structured output keeps the contract strongly typed and server-validated; a low-confidence draft simply pre-fills the normal add-transaction form.
+
+### Alternatives considered
+
+- **Deterministic regex/grammar parser** — no model cost, fully predictable. Rejected as primary: brittle across Spanish phrasing, slang, and relative dates; kept as a cheap pre-pass for trivial "<amount> <merchant>" forms.
+- **Auto-post without confirmation when confidence is high** — fewer taps. Rejected: a wrong auto-posted transaction erodes trust in a finance app; confirmation is cheap and the safety win is large.

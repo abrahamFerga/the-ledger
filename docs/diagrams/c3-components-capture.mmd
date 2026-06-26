@@ -1,0 +1,51 @@
+%% C4 L3 - Components for AI Capture & Channels (epic 9, v1.1)
+%% Every capture surface converges on one StagedTransaction review-and-confirm queue.
+flowchart TB
+    user["User (phone / web)"]
+    meta["WhatsApp (Meta Cloud API)"]
+
+    subgraph api [TheLedger.Api - capture endpoints]
+        ep_quick["POST /transactions/quick-add<br/>(free text -> draft)"]
+        ep_receipt["POST /receipts<br/>(multipart image)"]
+        ep_hook["GET|POST /connectors/whatsapp/webhook<br/>verify-token + HMAC body sig"]
+    end
+
+    subgraph app [Application.Ingestion - capture handlers]
+        h_quick["QuickAddHandler"]
+        h_receipt["ReceiptIngestHandler"]
+        h_wa["WhatsAppInboundHandler<br/>(resolve sender -> opted-in User)"]
+        queue["StagedTransaction queue<br/>(review & confirm)"]
+    end
+
+    subgraph infra [Infrastructure]
+        store["IFileStore (Blob)"]
+        outbox["Outbox -> Storage Queue"]
+        redact["PII redaction + PAN mask"]
+        wa_send["IWhatsAppSender (outbound)"]
+        registry["ConnectorRegistry"]
+    end
+
+    subgraph worker [TheLedger.Worker]
+        ocr["IReceiptExtractor"]
+        a_norm["ReceiptNormalizationAgent"]
+        a_quick["QuickAddParserAgent"]
+    end
+
+    docintel["Azure Document Intelligence<br/>prebuilt-receipt"]
+    openai["Azure OpenAI"]
+
+    user --> ep_quick --> h_quick --> a_quick
+    user --> ep_receipt --> h_receipt --> store
+    meta <--> ep_hook --> h_wa
+    h_receipt --> outbox
+    h_wa -->|image| outbox
+    h_wa -->|text| a_quick
+    outbox --> ocr --> docintel
+    ocr --> a_norm --> redact --> openai
+    a_quick --> redact
+    a_norm --> queue
+    a_quick --> queue
+    queue -->|user confirms| ledger["Ledger (posted transaction)"]
+    wa_send --> meta
+    registry --- wa_send
+    outbox --> wa_send
