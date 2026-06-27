@@ -1,5 +1,6 @@
 using TheLedger.Infrastructure;
 using TheLedger.Infrastructure.Azure;
+using TheLedger.Infrastructure.Connectors.WhatsApp;
 using TheLedger.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -16,6 +17,11 @@ builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddAzureAiCategorization(builder.Configuration);
 builder.Services.AddAzureBlobStorage(builder.Configuration);
 builder.Services.AddAzureDocumentIntelligence(builder.Configuration);
+
+// WhatsApp connector (feature #50, ADR-0010): the worker dispatches outbound whatsapp.send outbox
+// messages through IWhatsAppSender. The fake sender backs dev/CI; the live Meta sender is selected
+// only when credentials are configured.
+builder.Services.AddWhatsAppConnector(builder.Configuration);
 
 builder.Services.AddHostedService<OutboxDispatcher>();
 

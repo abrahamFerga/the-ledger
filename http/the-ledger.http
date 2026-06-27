@@ -123,3 +123,27 @@ Idempotency-Key: {{$guid}}
 X-Dev-Tenant: {{tenant}}
 X-Dev-User: {{user}}
 X-Dev-Role: Owner
+
+### WhatsApp opt-in — map this phone to the current user + record WhatsAppChannel consent (feature #50).
+POST {{host}}/api/v1/connectors/whatsapp/opt-in
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+
+{ "phoneNumber": "5215512345678" }
+
+### WhatsApp webhook — Meta subscription verify challenge (GET, JWT-anonymous; feature #50, ADR-0010).
+### Echoes hub.challenge as text/plain when hub.verify_token matches WhatsApp:VerifyToken (dev default below).
+GET {{host}}/api/v1/connectors/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=dev-verify-token&hub.challenge=12345
+
+### WhatsApp webhook — inbound text message (POST, JWT-anonymous; HMAC-verified before processing).
+### The X-Hub-Signature-256 below is HMAC-SHA256 of the EXACT body bytes keyed by the dev app secret
+### "dev-app-secret"; change either and the request is rejected 403. Exempt from Idempotency-Key (dedupes
+### on the WhatsApp message id). With the phone opted in above, this stages a transaction in the review queue.
+POST {{host}}/api/v1/connectors/whatsapp/webhook
+Content-Type: application/json
+X-Hub-Signature-256: sha256=1a9ad1d164fa2693d707f0d659caeb2908cb2ad1d4b24994de6e2c1eb424d94c
+
+{"object":"whatsapp_business_account","entry":[{"changes":[{"value":{"messages":[{"id":"wamid.HBgLMTU1NTAwMDAwMDA","from":"5215512345678","type":"text","text":{"body":"gasté 200 en el Oxxo ayer"}}]}}]}]}

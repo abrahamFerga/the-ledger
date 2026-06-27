@@ -11,6 +11,7 @@
     <Project Path="src/TheLedger.Application/TheLedger.Application.csproj" />
     <Project Path="src/TheLedger.Domain/TheLedger.Domain.csproj" />
     <Project Path="src/TheLedger.Infrastructure.Azure/TheLedger.Infrastructure.Azure.csproj" />
+    <Project Path="src/TheLedger.Infrastructure.Connectors.WhatsApp/TheLedger.Infrastructure.Connectors.WhatsApp.csproj" />
     <Project Path="src/TheLedger.Infrastructure/TheLedger.Infrastructure.csproj" />
     <Project Path="src/TheLedger.ServiceDefaults/TheLedger.ServiceDefaults.csproj" />
     <Project Path="src/TheLedger.Worker/TheLedger.Worker.csproj" />

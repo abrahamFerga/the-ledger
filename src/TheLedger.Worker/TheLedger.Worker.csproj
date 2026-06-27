@@ -16,6 +16,7 @@
     <ProjectReference Include="..\TheLedger.Application.Foundations\TheLedger.Application.Foundations.csproj" />
     <ProjectReference Include="..\TheLedger.Infrastructure\TheLedger.Infrastructure.csproj" />
     <ProjectReference Include="..\TheLedger.Infrastructure.Azure\TheLedger.Infrastructure.Azure.csproj" />
+    <ProjectReference Include="..\TheLedger.Infrastructure.Connectors.WhatsApp\TheLedger.Infrastructure.Connectors.WhatsApp.csproj" />
     <ProjectReference Include="..\TheLedger.Domain\TheLedger.Domain.csproj" />
     <ProjectReference Include="..\TheLedger.ServiceDefaults\TheLedger.ServiceDefaults.csproj" />
   </ItemGroup>

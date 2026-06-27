@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using TheLedger.Application.Abstractions;
 using TheLedger.Application.Alerts;
 using TheLedger.Application.Budgeting;
+using TheLedger.Application.Channels;
 using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
@@ -15,6 +16,7 @@ using TheLedger.Application.Ledger;
 using TheLedger.Application.Notifications;
 using TheLedger.Application.Storage;
 using TheLedger.Infrastructure.Categorization;
+using TheLedger.Infrastructure.Channels;
 using TheLedger.Infrastructure.Ingestion;
 using TheLedger.Infrastructure.Notifications;
 using TheLedger.Infrastructure.Storage;
@@ -87,6 +89,14 @@ public static class DependencyInjection
 
         // Default email sender (feature #34); replaced by the ACS connector when configured.
         services.AddScoped<IEmailSender, NoOpEmailSender>();
+
+        // WhatsApp inbound capture (feature #50, ADR-0010). The processor dedupes on the message id,
+        // resolves the sender to an opted-in user, and stages text via the NL parser / image via receipt
+        // OCR. Dedupe is backed by the same Redis the idempotency middleware uses; the IWhatsAppSender +
+        // IWhatsAppMediaDownloader come from the connector project's AddWhatsAppConnector().
+        services.AddScoped<IWhatsAppDedupeStore, RedisWhatsAppDedupeStore>();
+        services.AddScoped<IWhatsAppInboundProcessor, WhatsAppInboundProcessor>();
+        services.AddScoped<IWhatsAppOptInService, WhatsAppOptInService>();
 
         // Default file store (feature #35): statement bytes in the DB; replaced by Azure Blob when configured.
         services.AddScoped<IFileStore, DbFileStore>();

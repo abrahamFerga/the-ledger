@@ -25,6 +25,7 @@
     <ProjectReference Include="..\TheLedger.Application.Insights\TheLedger.Application.Insights.csproj" />
     <ProjectReference Include="..\TheLedger.Application.Alerts\TheLedger.Application.Alerts.csproj" />
     <ProjectReference Include="..\TheLedger.Infrastructure.Azure\TheLedger.Infrastructure.Azure.csproj" />
+    <ProjectReference Include="..\TheLedger.Infrastructure.Connectors.WhatsApp\TheLedger.Infrastructure.Connectors.WhatsApp.csproj" />
   </ItemGroup>
 
 </Project>

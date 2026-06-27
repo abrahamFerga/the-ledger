@@ -9,7 +9,14 @@ public enum ConsentType
     PrivacyNotice,
 
     /// <summary>Opt-in to sending (redacted) transaction text to the LLM categorizer.</summary>
-    LlmCategorization
+    LlmCategorization,
+
+    /// <summary>
+    /// Opt-in to capture and alerts over WhatsApp (feature #50): inbound messages from the user's
+    /// mapped phone are processed, and outbound bill/anomaly/export-ready alerts may target WhatsApp.
+    /// Without this consent a sender's number is never resolved to tenant data.
+    /// </summary>
+    WhatsAppChannel
 }
 
 /// <summary>Evidence that a user granted a specific consent version, for ARCO/GDPR.</summary>

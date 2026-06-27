@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using TheLedger.Application.Abstractions;
 using TheLedger.Application.Alerts;
+using TheLedger.Application.Channels;
 using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Alerts;
+using TheLedger.Domain.Consent;
 using TheLedger.Domain.Ledger;
 using TheLedger.Domain.Outbox;
+using TheLedger.Infrastructure.Channels;
 using TheLedger.Infrastructure.Persistence;
 
 namespace TheLedger.Infrastructure.Alerts;
@@ -14,11 +17,15 @@ public sealed class AlertScanner(LedgerDbContext db, ITenantContext tenant) : IA
     private const decimal LowBalanceThreshold = 100m;
     private static readonly string[] FeeKeywords = ["COMISION", "COMISIÓN", "FEE", "CARGO POR", "ANUALIDAD"];
 
+    // Phone numbers of users in this tenant who opted in to WhatsApp alerts (resolved once per scan).
+    private List<string> _whatsAppRecipients = [];
+
     public async Task<int> ScanAsync(CancellationToken ct)
     {
         var transactions = await db.Transactions.Where(t => t.IsConfirmed).OrderBy(t => t.Date).ToListAsync(ct);
         var existing = await db.Alerts.Where(a => a.Status != AlertStatus.Dismissed).Select(a => a.DedupeKey).ToListAsync(ct);
         var keys = new HashSet<string>(existing);
+        _whatsAppRecipients = await ResolveWhatsAppRecipientsAsync(ct);
 
         var raised = 0;
         raised += AddDuplicates(transactions, keys);
@@ -155,7 +162,37 @@ public sealed class AlertScanner(LedgerDbContext db, ITenantContext tenant) : IA
             Status = OutboxStatus.Pending,
         });
 
+        // Parallel WhatsApp channel (feature #50): fan the same bill/anomaly/export-ready alert out to
+        // every user in this tenant who opted in to WhatsApp, routed through the outbox like email.
+        foreach (var phone in _whatsAppRecipients)
+        {
+            db.Outbox.Add(WhatsAppOutbox.Send(new WhatsAppMessage(phone, $"🔔 the-ledger: {message}"), tenant.TenantId));
+        }
+
         return 1;
+    }
+
+    /// <summary>
+    /// The phone numbers of users in the current tenant who hold a <see cref="ConsentType.WhatsAppChannel"/>
+    /// consent and have a mapped <see cref="Domain.Channels.WhatsAppContact"/>. Empty when no one opted in,
+    /// so alerts simply stay email-only — the WhatsApp channel is purely additive and opt-in gated.
+    /// </summary>
+    private async Task<List<string>> ResolveWhatsAppRecipientsAsync(CancellationToken ct)
+    {
+        var optedInUserIds = await db.Consents
+            .Where(c => c.Type == ConsentType.WhatsAppChannel)
+            .Select(c => c.UserId)
+            .ToListAsync(ct);
+
+        if (optedInUserIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await db.WhatsAppContacts
+            .Where(c => optedInUserIds.Contains(c.UserId))
+            .Select(c => c.PhoneNumber)
+            .ToListAsync(ct);
     }
 
     private static string Normalize(string description)
