@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { nav, primaryNav } from '../lib/nav'
 import { useHousehold } from '../api/hooks'
+import { QuickAddBar } from '../features/capture/QuickAddBar'
 
 /**
  * Mobile-first responsive shell (feature #10): a desktop sidebar collapses to a thumb-reachable
@@ -61,7 +62,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </aside>
 
-        <main className="min-w-0 flex-1 p-4 pb-24 md:pb-8">{children}</main>
+        <main className="min-w-0 flex-1 p-4 pb-40 md:pb-8">
+          {/* AI-first capture: one persistent quick-add bar, reachable from every page. Its own
+              responsive classes float it above the bottom nav on mobile and stick it to the top on
+              desktop, so it renders exactly once. */}
+          <QuickAddBar />
+          <div className="md:mt-4">{children}</div>
+        </main>
       </div>
 
       <nav

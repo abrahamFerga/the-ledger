@@ -19,13 +19,20 @@ import type {
   MemberDto,
   MonthlyTotalDto,
   NetWorthDto,
+  QuickAddRequest,
+  RawTransactionDraft,
+  ReceiptDto,
   SetBudgetRequest,
   CategorySpendDto,
   StatementDto,
+  TransactionDirection,
+  TransactionDraft,
   TransactionDto,
   TransactionFeedQuery,
   TransactionListItem,
   UpdateTransactionRequest,
+  WhatsAppOptInDto,
+  WhatsAppOptInRequest,
 } from './types'
 
 const V1 = '/api/v1'
@@ -118,4 +125,51 @@ export const alertsApi = {
   dismiss: (id: string) =>
     request<void>(`${V1}/alerts/${id}/dismiss`, { method: 'POST' }),
   scan: () => request<{ raised: number }>(`${V1}/alerts/scan`, { method: 'POST' }),
+}
+
+// --- Capture: NL quick-add (epic 9) ---
+/** Map the raw wire draft (numeric direction) onto the canonical string-direction draft. */
+function normalizeDraft(raw: RawTransactionDraft): TransactionDraft {
+  const direction: TransactionDirection = raw.direction === 1 ? 'Credit' : 'Debit'
+  return {
+    amount: raw.amount,
+    currency: raw.currency,
+    date: raw.date,
+    direction,
+    merchant: raw.merchant,
+    proposedCategoryId: raw.proposedCategoryId,
+    confidence: raw.confidence,
+  }
+}
+
+export const quickAddApi = {
+  /** Parse a free-text phrase into a transaction draft. Never persists — the SPA confirms first. */
+  parse: async (body: QuickAddRequest): Promise<TransactionDraft> => {
+    const raw = await request<RawTransactionDraft>(`${V1}/transactions/quick-add`, {
+      method: 'POST',
+      body,
+    })
+    return normalizeDraft(raw)
+  },
+}
+
+// --- Capture: receipt OCR (epic 9) ---
+export const receiptsApi = {
+  list: () => request<ReceiptDto[]>(`${V1}/receipts`),
+  /** Upload a receipt photo (multipart) → 202 Accepted with the queued ReceiptDto (OCR pending). */
+  upload: (accountId: string, file: File) => {
+    const form = new FormData()
+    form.append('accountId', accountId)
+    form.append('file', file)
+    return request<ReceiptDto>(`${V1}/receipts`, { method: 'POST', rawBody: form })
+  },
+}
+
+// --- Capture: WhatsApp opt-in (epic 9) ---
+export const whatsappApi = {
+  list: () => request<WhatsAppOptInDto[]>(`${V1}/connectors/whatsapp/opt-in`),
+  optIn: (body: WhatsAppOptInRequest) =>
+    request<WhatsAppOptInDto>(`${V1}/connectors/whatsapp/opt-in`, { method: 'POST', body }),
+  revoke: (contactId: string) =>
+    request<void>(`${V1}/connectors/whatsapp/opt-in/${contactId}`, { method: 'DELETE' }),
 }
