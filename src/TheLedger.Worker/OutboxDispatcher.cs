@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using TheLedger.Application.Channels;
 using TheLedger.Application.Notifications;
 using TheLedger.Domain.Outbox;
+using TheLedger.Infrastructure.Channels;
 using TheLedger.Infrastructure.Parsing;
 using TheLedger.Infrastructure.Persistence;
 using TheLedger.Infrastructure.Receipts;
@@ -31,6 +33,7 @@ public sealed class OutboxDispatcher(
                 var parseHandler = scope.ServiceProvider.GetRequiredService<StatementParseHandler>();
                 var receiptHandler = scope.ServiceProvider.GetRequiredService<ReceiptParseHandler>();
                 var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+                var whatsAppSender = scope.ServiceProvider.GetRequiredService<IWhatsAppSender>();
 
                 var pending = await db.Outbox
                     .Where(m => m.Status == OutboxStatus.Pending)
@@ -56,6 +59,17 @@ public sealed class OutboxDispatcher(
                             if (email is not null)
                             {
                                 await emailSender.SendAsync(email, stoppingToken);
+                            }
+                        }
+                        else if (message.Type == WhatsAppOutbox.OutboxType)
+                        {
+                            // Outbound WhatsApp (help replies + opt-in alerts) — sent here, never inline
+                            // from a handler (ADR-0010). The fake sender backs dev/CI; the live Meta
+                            // sender is selected by AddWhatsAppConnector when credentials are configured.
+                            var whatsApp = WhatsAppOutbox.Read(message.Payload);
+                            if (whatsApp is not null)
+                            {
+                                await whatsAppSender.SendAsync(whatsApp, stoppingToken);
                             }
                         }
 

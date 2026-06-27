@@ -13,9 +13,15 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, ILogger<Idempote
     private static readonly HashSet<string> WriteMethods =
         new(StringComparer.OrdinalIgnoreCase) { "POST", "PUT", "PATCH", "DELETE" };
 
+    // Connector webhooks are called by third parties (Meta) that don't send an Idempotency-Key; they
+    // dedupe on their own message id instead (feature #50, ADR-0010). Exempt them explicitly so this
+    // middleware never blocks an inbound webhook POST.
+    private static readonly PathString WhatsAppWebhook = new("/api/v1/connectors/whatsapp/webhook");
+
     public async Task InvokeAsync(HttpContext context, IDistributedCache cache)
     {
-        if (!WriteMethods.Contains(context.Request.Method))
+        if (!WriteMethods.Contains(context.Request.Method)
+            || context.Request.Path.StartsWithSegments(WhatsAppWebhook))
         {
             await next(context);
             return;

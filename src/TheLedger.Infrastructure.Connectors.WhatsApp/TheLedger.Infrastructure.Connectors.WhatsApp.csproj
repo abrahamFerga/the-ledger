@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- IOptions<T> + ServiceCollection extensions for the connector's own DI registration; the
+         resilience handler adds Polly to the outbound Meta call (enterprise resilience guardrail).
+         No provider SDK: the connector talks to the Meta Cloud API over HttpClient + JSON only. -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TheLedger.Application\TheLedger.Application.csproj" />
+  </ItemGroup>
+
+</Project>

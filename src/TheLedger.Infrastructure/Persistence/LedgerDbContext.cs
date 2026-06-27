@@ -6,6 +6,7 @@ using TheLedger.Domain.Alerts;
 using TheLedger.Domain.Auditing;
 using TheLedger.Domain.Budgeting;
 using TheLedger.Domain.Categories;
+using TheLedger.Domain.Channels;
 using TheLedger.Domain.Consent;
 using TheLedger.Domain.Identity;
 using TheLedger.Domain.Ledger;
@@ -43,6 +44,7 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<RecurringSeries> RecurringSeries => Set<RecurringSeries>();
+    public DbSet<WhatsAppContact> WhatsAppContacts => Set<WhatsAppContact>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -213,6 +215,16 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.Property(x => x.Merchant).HasMaxLength(100).IsRequired();
             e.Property(x => x.ExpectedAmount).HasPrecision(19, 4);
             e.HasIndex(x => new { x.TenantId, x.Merchant }).IsUnique();
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<WhatsAppContact>(e =>
+        {
+            e.ToTable("whatsapp_contacts");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.PhoneNumber).HasMaxLength(32).IsRequired();
+            // One mapping per number per tenant; inbound resolution looks a sender up by phone.
+            e.HasIndex(x => new { x.TenantId, x.PhoneNumber }).IsUnique();
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }

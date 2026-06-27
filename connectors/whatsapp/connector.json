@@ -1,0 +1,13 @@
+{
+  "name": "whatsapp",
+  "type": "channel",
+  "version": "1.0.0",
+  "description": "WhatsApp Business capture & alerts: a receipt photo or natural-language message becomes a staged transaction, and bill/anomaly/export-ready alerts go out to opted-in users.",
+  "capabilities": ["send-message", "receive-webhook", "capture-transaction"],
+  "requires": {
+    "patterns": ["pluggable-connectors"],
+    "secrets": ["whatsapp-app-secret", "whatsapp-verify-token", "whatsapp-access-token"],
+    "capabilities": ["document-intelligence", "llm"]
+  },
+  "homepage": "https://developers.facebook.com/docs/whatsapp/cloud-api"
+}

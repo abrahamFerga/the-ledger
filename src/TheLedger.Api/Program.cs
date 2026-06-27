@@ -5,6 +5,7 @@ using TheLedger.Api.Setup;
 using TheLedger.Api.Tenancy;
 using TheLedger.Infrastructure;
 using TheLedger.Infrastructure.Azure;
+using TheLedger.Infrastructure.Connectors.WhatsApp;
 using TheLedger.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +33,11 @@ builder.Services.AddAzureBlobStorage(builder.Configuration);
 // Azure Document Intelligence receipt OCR — registered only when configured; defaults to the fake
 // extractor so CI needs no Azure dependency (feature #49, ADR-0009).
 builder.Services.AddAzureDocumentIntelligence(builder.Configuration);
+
+// WhatsApp connector (feature #50, ADR-0010): inbound webhook handler + outbound sender. Validates its
+// options at startup; uses the deterministic fake sender/media downloader unless real Meta credentials
+// are configured, so the webhook (verify-token + HMAC) is exercisable in dev/CI without Meta.
+builder.Services.AddWhatsAppConnector(builder.Configuration);
 
 // AuthN (OIDC / Dev) + RBAC policies.
 builder.AddLedgerAuth();
@@ -77,6 +83,7 @@ app.MapBudgets();
 app.MapGoals();
 app.MapInsights();
 app.MapAlerts();
+app.MapWhatsApp();
 
 // Apply EF Core migrations on startup. A failure here is fatal: fail loudly (and let Aspire restart
 // the resource) rather than silently serving 500s against a missing schema (#45).
