@@ -37,7 +37,7 @@ builder.Services.AddAzureDocumentIntelligence(builder.Configuration);
 // WhatsApp connector (feature #50, ADR-0010): inbound webhook handler + outbound sender. Validates its
 // options at startup; uses the deterministic fake sender/media downloader unless real Meta credentials
 // are configured, so the webhook (verify-token + HMAC) is exercisable in dev/CI without Meta.
-builder.Services.AddWhatsAppConnector(builder.Configuration);
+builder.Services.AddWhatsAppConnector(builder.Configuration, builder.Environment);
 
 // AuthN (OIDC / Dev) + RBAC policies.
 builder.AddLedgerAuth();

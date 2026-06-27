@@ -41,13 +41,34 @@ public sealed class WhatsAppInboundProcessor(
 
     public async Task<WhatsAppInboundOutcome> ProcessAsync(WhatsAppInboundMessage message, CancellationToken ct)
     {
-        // 1) Dedupe — a retried wamid must not stage a second transaction.
+        // 1) Pre-claim the wamid so two concurrent deliveries of the same message can't both stage. This is
+        // a CLAIM, not proof the capture committed: if the staging work below throws we must release it
+        // (see the catch) so Meta's retry re-processes — otherwise a mid-pipeline failure would silently
+        // and permanently drop the capture.
         if (!await dedupe.TryMarkProcessedAsync(message.MessageId, ct))
         {
             logger.LogInformation("Ignoring duplicate WhatsApp message {MessageId}", message.MessageId);
             return WhatsAppInboundOutcome.Duplicate;
         }
 
+        try
+        {
+            return await ProcessClaimedAsync(message, ct);
+        }
+        catch (Exception ex)
+        {
+            // Compensate: release the dedupe claim so the bounded Meta retry of this wamid re-processes
+            // and stages, then rethrow so the boundary surfaces it as a transient failure.
+            logger.LogWarning(ex,
+                "WhatsApp message {MessageId} failed during staging; releasing dedupe claim for retry",
+                message.MessageId);
+            await dedupe.RemoveAsync(message.MessageId, ct);
+            throw;
+        }
+    }
+
+    private async Task<WhatsAppInboundOutcome> ProcessClaimedAsync(WhatsAppInboundMessage message, CancellationToken ct)
+    {
         // 2) Resolve the sender to an opted-in user. No tenant is resolved yet, so this read crosses the
         // tenant filter deliberately; it only ever matches a number a household explicitly registered.
         var contact = await db.WhatsAppContacts.IgnoreQueryFilters()

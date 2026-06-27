@@ -223,8 +223,10 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.ToTable("whatsapp_contacts");
             e.HasKey(x => x.Id);
             e.Property(x => x.PhoneNumber).HasMaxLength(32).IsRequired();
-            // One mapping per number per tenant; inbound resolution looks a sender up by phone.
-            e.HasIndex(x => new { x.TenantId, x.PhoneNumber }).IsUnique();
+            // PhoneNumber is GLOBALLY unique (not per-tenant): inbound resolution looks a sender up by phone
+            // before any tenant is resolved, so one number must map to exactly one contact. OptInAsync
+            // rejects a number already owned in another tenant, keeping the by-phone lookup deterministic.
+            e.HasIndex(x => x.PhoneNumber).IsUnique();
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
     }
