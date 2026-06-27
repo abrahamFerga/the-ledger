@@ -3,8 +3,12 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using TheLedger.Application.Channels;
+using TheLedger.Application.Ingestion.QuickAdd;
 using TheLedger.Domain.Accounts;
 using TheLedger.Domain.Channels;
 using TheLedger.Domain.Consent;
@@ -78,6 +82,10 @@ public class WhatsAppConnectorTests
         Assert.Equal("CHALLENGE", handler.Verify("subscribe", "expected", "CHALLENGE"));
         Assert.Null(handler.Verify("subscribe", "wrong", "CHALLENGE"));
         Assert.Null(handler.Verify(mode: null, "expected", "CHALLENGE"));
+        // FIX 5: the constant-time compare must also reject a differing-length token (length guard) and
+        // an empty token, not just a same-length mismatch.
+        Assert.Null(handler.Verify("subscribe", "expected-but-longer", "CHALLENGE"));
+        Assert.Null(handler.Verify("subscribe", "", "CHALLENGE"));
     }
 
     // ---- Webhook handler: HMAC gate → parse → dispatch (end-to-end inbound) -----------------------
@@ -308,6 +316,97 @@ public class WhatsAppConnectorTests
         Assert.Single(await ctx.Transactions.IgnoreQueryFilters().ToListAsync());
     }
 
+    // ---- FIX 2: a staging failure must NOT permanently dedupe the message -------------------------
+
+    [Fact]
+    public async Task Staging_failure_releases_the_dedupe_claim_so_a_retry_re_processes()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+
+        var tenant = new TenantContext();
+        var tenantId = Guid.CreateVersion7();
+        var userId = Guid.CreateVersion7();
+        tenant.Resolve(tenantId, userId, "Owner");
+
+        await using var ctx = NewContext(connection, tenant);
+        await ctx.Database.EnsureCreatedAsync();
+        await SeedOptedInUserAsync(ctx, tenantId, userId, "5215512345678");
+
+        var dedupe = new InMemoryDedupeStore();
+        var message = new WhatsAppInboundMessage("wamid.retry", "5215512345678", WhatsAppInboundKind.Text,
+            "gasté 200 en el Oxxo", Media: null, MediaContentType: null);
+
+        // First delivery: the parser throws mid-staging. The processor must compensate (release the
+        // dedupe claim) and rethrow, leaving NO transaction staged and the wamid NOT permanently deduped.
+        var throwingParser = new ThrowingParser();
+        var failing = NewProcessor(ctx, tenant, dedupe, throwingParser);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => failing.ProcessAsync(message, default));
+
+        Assert.Empty(await ctx.Transactions.IgnoreQueryFilters().ToListAsync());
+
+        // Meta retries the same wamid. Because the claim was released, the retry re-processes and stages —
+        // proving no silent capture loss.
+        var retry = NewProcessor(ctx, tenant, dedupe);
+        Assert.Equal(WhatsAppInboundOutcome.Staged, await retry.ProcessAsync(message, default));
+        Assert.Single(await ctx.Transactions.IgnoreQueryFilters().ToListAsync());
+    }
+
+    // ---- FIX 4: a phone number is globally unique — opting into a second tenant is rejected --------
+
+    [Fact]
+    public async Task Opting_a_number_into_a_second_tenant_is_rejected()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+
+        const string phone = "5215512345678";
+        var tenantA = Guid.CreateVersion7();
+        var userA = Guid.CreateVersion7();
+
+        // Tenant A opts the number in.
+        var contextA = new TenantContext();
+        contextA.Resolve(tenantA, userA, "Owner");
+        await using (var ctxA = NewContext(connection, contextA))
+        {
+            await ctxA.Database.EnsureCreatedAsync();
+            ctxA.Users.Add(new User
+            {
+                Id = userA, TenantId = tenantA, Email = "a@example.com",
+                ExternalAuthId = "ext-a", Role = UserRole.Owner,
+            });
+            await ctxA.SaveChangesAsync();
+
+            var svcA = new WhatsAppOptInService(ctxA, contextA);
+            var dto = await svcA.OptInAsync(new WhatsAppOptInRequest(phone, DefaultAccountId: null), default);
+            Assert.True(dto.OptedIn);
+        }
+
+        // Tenant B (a different household) tries to claim the SAME number → rejected.
+        var tenantB = Guid.CreateVersion7();
+        var userB = Guid.CreateVersion7();
+        var contextB = new TenantContext();
+        contextB.Resolve(tenantB, userB, "Owner");
+        await using (var ctxB = NewContext(connection, contextB))
+        {
+            ctxB.Users.Add(new User
+            {
+                Id = userB, TenantId = tenantB, Email = "b@example.com",
+                ExternalAuthId = "ext-b", Role = UserRole.Owner,
+            });
+            await ctxB.SaveChangesAsync();
+
+            var svcB = new WhatsAppOptInService(ctxB, contextB);
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => svcB.OptInAsync(new WhatsAppOptInRequest(phone, DefaultAccountId: null), default));
+
+            // Only tenant A's contact exists; the number was not re-pointed to tenant B.
+            var contacts = await ctxB.WhatsAppContacts.IgnoreQueryFilters().ToListAsync();
+            Assert.Single(contacts);
+            Assert.Equal(tenantA, contacts[0].TenantId);
+        }
+    }
+
     // ---- Outbound send enqueues an outbox message + the fake sender sends it -----------------------
 
     [Fact]
@@ -339,7 +438,7 @@ public class WhatsAppConnectorTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddWhatsAppConnector(new ConfigurationBuilder().Build());
+        services.AddWhatsAppConnector(new ConfigurationBuilder().Build(), DevEnvironment);
 
         using var provider = services.BuildServiceProvider();
         Assert.IsType<FakeWhatsAppSender>(provider.GetRequiredService<IWhatsAppSender>());
@@ -358,10 +457,62 @@ public class WhatsAppConnectorTests
                 ["WhatsApp:PhoneNumberId"] = "102226306899880",
             })
             .Build();
-        services.AddWhatsAppConnector(configuration);
+        services.AddWhatsAppConnector(configuration, DevEnvironment);
 
         using var provider = services.BuildServiceProvider();
         Assert.IsType<MetaWhatsAppSender>(provider.GetRequiredService<IWhatsAppSender>());
+    }
+
+    // ---- FIX 1: fail-closed dev-secret guard outside Development -----------------------------------
+
+    [Fact]
+    public void Startup_validation_rejects_the_dev_defaults_outside_development()
+    {
+        // A non-Development environment with no WhatsApp config (so the in-source dev defaults apply)
+        // must fail startup loudly rather than silently accepting forged webhooks signed with the
+        // publicly-known dev secret.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddWhatsAppConnector(new ConfigurationBuilder().Build(), ProductionEnvironment);
+
+        using var provider = services.BuildServiceProvider();
+        var ex = Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<WhatsAppOptions>>().Value);
+        Assert.Contains("outside Development", ex.Message);
+    }
+
+    [Fact]
+    public void Startup_validation_passes_outside_development_with_real_secrets()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["WhatsApp:AppSecret"] = "real-app-secret",
+                ["WhatsApp:VerifyToken"] = "real-verify-token",
+            })
+            .Build();
+        services.AddWhatsAppConnector(configuration, ProductionEnvironment);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<WhatsAppOptions>>().Value;
+        Assert.Equal("real-app-secret", options.AppSecret);
+        Assert.Equal("real-verify-token", options.VerifyToken);
+    }
+
+    [Fact]
+    public void Startup_validation_allows_the_dev_defaults_in_development()
+    {
+        // Local + CI run with no Meta config: the dev defaults stay usable in Development.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddWhatsAppConnector(new ConfigurationBuilder().Build(), DevEnvironment);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<WhatsAppOptions>>().Value;
+        Assert.Equal("dev-app-secret", options.AppSecret);
+        Assert.Equal("dev-verify-token", options.VerifyToken);
     }
 
     // ---- helpers ----------------------------------------------------------------------------------
@@ -390,10 +541,11 @@ public class WhatsAppConnectorTests
     }
 
     private static WhatsAppInboundProcessor NewProcessor(
-        LedgerDbContext ctx, TenantContext tenant, IWhatsAppDedupeStore? dedupe = null)
+        LedgerDbContext ctx, TenantContext tenant, IWhatsAppDedupeStore? dedupe = null,
+        INaturalLanguageTransactionParser? parser = null)
     {
         var categorizer = new RuleCategorizer(ctx);
-        var parser = new FakeNaturalLanguageTransactionParser(categorizer, TimeProvider.System);
+        parser ??= new FakeNaturalLanguageTransactionParser(categorizer, TimeProvider.System);
         var receipts = new ReceiptIngestionService(ctx, tenant, new DbFileStore(ctx));
         return new WhatsAppInboundProcessor(
             ctx, tenant, dedupe ?? new InMemoryDedupeStore(), parser, receipts,
@@ -405,6 +557,9 @@ public class WhatsAppConnectorTests
         new(Microsoft.Extensions.Options.Options.Create(options), processor, downloader,
             NullLogger<WhatsAppWebhookHandler>.Instance);
 
+    private static IHostEnvironment DevEnvironment => new FakeHostEnvironment(Environments.Development);
+    private static IHostEnvironment ProductionEnvironment => new FakeHostEnvironment(Environments.Production);
+
     /// <summary>An in-memory dedupe store standing in for Redis in tests.</summary>
     private sealed class InMemoryDedupeStore : IWhatsAppDedupeStore
     {
@@ -412,5 +567,28 @@ public class WhatsAppConnectorTests
 
         public Task<bool> TryMarkProcessedAsync(string messageId, CancellationToken ct) =>
             Task.FromResult(_seen.Add(messageId));
+
+        public Task RemoveAsync(string messageId, CancellationToken ct)
+        {
+            _seen.Remove(messageId);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>A parser that always throws — stands in for a mid-staging failure.</summary>
+    private sealed class ThrowingParser : INaturalLanguageTransactionParser
+    {
+        public Task<TransactionDraft> ParseAsync(QuickAddRequest request, CancellationToken ct) =>
+            throw new InvalidOperationException("parser boom");
+    }
+
+    /// <summary>Minimal <see cref="IHostEnvironment"/> so the connector's env-aware validation is testable.</summary>
+    private sealed class FakeHostEnvironment(string environmentName) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "TheLedger.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public IFileProvider ContentRootFileProvider { get; set; } =
+            new PhysicalFileProvider(AppContext.BaseDirectory);
     }
 }

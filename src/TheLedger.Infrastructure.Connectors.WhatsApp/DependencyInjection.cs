@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using TheLedger.Application.Channels;
@@ -16,14 +17,16 @@ namespace TheLedger.Infrastructure.Connectors.WhatsApp;
 public static class WhatsAppConnectorExtensions
 {
     public static IServiceCollection AddWhatsAppConnector(
-        this IServiceCollection services, IConfiguration configuration)
+        this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
+        // Fail-closed startup validation (env-aware): the in-source dev secrets are usable in Development
+        // only — outside Development a deploy that omits real WhatsApp:AppSecret / WhatsApp:VerifyToken
+        // fails to start rather than silently accepting forged webhooks (see WhatsAppOptions.Validate).
+        var isDevelopment = environment.IsDevelopment();
         services.AddOptions<WhatsAppOptions>()
             .Bind(configuration.GetSection(WhatsAppOptions.SectionName))
-            .Validate(o => !string.IsNullOrWhiteSpace(o.VerifyToken), "WhatsApp:VerifyToken is required.")
-            .Validate(o => !string.IsNullOrWhiteSpace(o.AppSecret), "WhatsApp:AppSecret is required.")
-            .Validate(o => !o.HasCredentials || !string.IsNullOrWhiteSpace(o.GraphApiBaseUrl),
-                "WhatsApp:GraphApiBaseUrl is required when credentials are configured.")
+            .Validate(o => o.Validate(isDevelopment) is null,
+                "WhatsApp options are invalid. Real WhatsApp:AppSecret and WhatsApp:VerifyToken are required outside Development.")
             .ValidateOnStart();
 
         // The edge handler (verify-token + HMAC + envelope parse + media + dispatch) — the API depends

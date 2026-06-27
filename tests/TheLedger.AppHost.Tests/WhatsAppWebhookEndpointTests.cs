@@ -55,6 +55,23 @@ public class WhatsAppWebhookEndpointTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Post_with_an_oversize_body_is_rejected_413_before_any_processing()
+    {
+        using var http = await StartHostAsync();
+
+        // > 256 KB body: the buffered-read cap rejects it with 413 before HMAC/processing, so a hostile
+        // caller can't use the webhook to exhaust memory.
+        var huge = new string('a', 300 * 1024);
+        using var content = new StringContent(
+            $$"""{"object":"whatsapp_business_account","pad":"{{huge}}"}""", Encoding.UTF8, "application/json");
+        content.Headers.Add("X-Hub-Signature-256", "sha256=deadbeef");
+
+        var response = await http.PostAsync(WebhookPath, content);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+    }
+
     private static async Task<HttpClient> StartHostAsync()
     {
         var appHost = await DistributedApplicationTestingBuilder.CreateAsync<Projects.TheLedger_AppHost>();

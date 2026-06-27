@@ -20,14 +20,26 @@ public sealed class WhatsAppOptInService(LedgerDbContext db, ITenantContext tena
 
     public async Task<WhatsAppOptInDto> OptInAsync(WhatsAppOptInRequest request, CancellationToken ct)
     {
-        if (tenant.UserId is not { } userId)
+        if (tenant.UserId is not { } userId || tenant.TenantId is not { } tenantId)
         {
             throw new InvalidOperationException("A resolved user is required to opt in to WhatsApp.");
         }
 
         var phone = NormalizePhone(request.PhoneNumber);
 
-        var contact = await db.WhatsAppContacts.FirstOrDefaultAsync(c => c.PhoneNumber == phone, ct);
+        // PhoneNumber is globally unique (a WhatsApp number maps to exactly one household in v1) and inbound
+        // resolution looks the sender up by phone alone. Check across ALL tenants: a number already owned in
+        // another tenant must be rejected, not silently re-pointed, so the by-phone lookup stays deterministic
+        // (and one household can't hijack another's number).
+        var existing = await db.WhatsAppContacts.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.PhoneNumber == phone, ct);
+        if (existing is not null && existing.TenantId != tenantId)
+        {
+            throw new InvalidOperationException(
+                "This WhatsApp number is already linked to an account in another household and cannot be re-used.");
+        }
+
+        var contact = existing;
         if (contact is null)
         {
             contact = new WhatsAppContact

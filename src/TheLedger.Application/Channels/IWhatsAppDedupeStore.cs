@@ -13,4 +13,11 @@ public interface IWhatsAppDedupeStore
     /// <c>false</c> on every subsequent delivery within the dedupe window.
     /// </summary>
     Task<bool> TryMarkProcessedAsync(string messageId, CancellationToken ct);
+
+    /// <summary>
+    /// Removes the dedupe claim for a message id (compensating action). Called when the staging work that
+    /// followed a successful <see cref="TryMarkProcessedAsync"/> fails, so the claim does not permanently
+    /// drop the capture: clearing it lets Meta's retry of the same <c>wamid.*</c> re-process and stage.
+    /// </summary>
+    Task RemoveAsync(string messageId, CancellationToken ct);
 }

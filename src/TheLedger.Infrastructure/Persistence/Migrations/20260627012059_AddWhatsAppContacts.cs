@@ -28,10 +28,14 @@ namespace TheLedger.Infrastructure.Persistence.Migrations
                     table.PrimaryKey("PK_whatsapp_contacts", x => x.Id);
                 });
 
+            // PhoneNumber is GLOBALLY unique: a WhatsApp number maps to exactly one person/household in v1,
+            // and inbound resolution looks a sender up by phone alone (no tenant resolved yet). A per-tenant
+            // composite would let the same number resolve to an arbitrary tenant's contact, so the uniqueness
+            // is on PhoneNumber only.
             migrationBuilder.CreateIndex(
-                name: "IX_whatsapp_contacts_TenantId_PhoneNumber",
+                name: "IX_whatsapp_contacts_PhoneNumber",
                 table: "whatsapp_contacts",
-                columns: new[] { "TenantId", "PhoneNumber" },
+                column: "PhoneNumber",
                 unique: true);
         }
 

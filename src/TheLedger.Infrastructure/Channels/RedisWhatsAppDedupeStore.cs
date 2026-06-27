@@ -18,7 +18,7 @@ public sealed class RedisWhatsAppDedupeStore(IDistributedCache cache) : IWhatsAp
 
     public async Task<bool> TryMarkProcessedAsync(string messageId, CancellationToken ct)
     {
-        var key = $"wa:msg:{messageId}";
+        var key = Key(messageId);
         if (await cache.GetStringAsync(key, ct) is not null)
         {
             return false;
@@ -27,4 +27,11 @@ public sealed class RedisWhatsAppDedupeStore(IDistributedCache cache) : IWhatsAp
         await cache.SetStringAsync(key, "1", Ttl, ct);
         return true;
     }
+
+    public Task RemoveAsync(string messageId, CancellationToken ct) =>
+        // Compensating action: drop the claim so Meta's retry of this wamid can re-process after a
+        // staging failure (the mark is a pre-claim, not proof the capture committed).
+        cache.RemoveAsync(Key(messageId), ct);
+
+    private static string Key(string messageId) => $"wa:msg:{messageId}";
 }

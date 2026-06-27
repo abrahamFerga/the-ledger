@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TheLedger.Application.Channels;
@@ -23,13 +25,26 @@ public sealed class WhatsAppWebhookHandler(
     {
         if (mode == "subscribe"
             && !string.IsNullOrEmpty(verifyToken)
-            && string.Equals(verifyToken, _options.VerifyToken, StringComparison.Ordinal))
+            && FixedTimeTokenEquals(verifyToken, _options.VerifyToken))
         {
             return challenge;
         }
 
         logger.LogWarning("WhatsApp webhook verify rejected (mode {Mode})", mode);
         return null;
+    }
+
+    /// <summary>
+    /// Constant-time verify-token comparison (avoids a timing side-channel that an ordinal compare leaks).
+    /// Length is guarded first so <see cref="CryptographicOperations.FixedTimeEquals"/> only runs on
+    /// equal-length spans, as it requires.
+    /// </summary>
+    private static bool FixedTimeTokenEquals(string provided, string expected)
+    {
+        var providedBytes = Encoding.UTF8.GetBytes(provided);
+        var expectedBytes = Encoding.UTF8.GetBytes(expected);
+        return providedBytes.Length == expectedBytes.Length
+            && CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
 
     public async Task<WhatsAppWebhookResult> HandleAsync(byte[] rawBody, string? signatureHeader, CancellationToken ct)

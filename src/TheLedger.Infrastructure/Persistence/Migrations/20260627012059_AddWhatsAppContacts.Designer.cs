@@ -451,7 +451,7 @@ namespace TheLedger.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "PhoneNumber")
+                    b.HasIndex("PhoneNumber")
                         .IsUnique();
 
                     b.ToTable("whatsapp_contacts", (string)null);
