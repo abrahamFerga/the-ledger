@@ -10,6 +10,7 @@ using TheLedger.Domain.Consent;
 using TheLedger.Domain.Identity;
 using TheLedger.Domain.Ledger;
 using TheLedger.Domain.Outbox;
+using TheLedger.Domain.Receipts;
 using TheLedger.Domain.Statements;
 using TheLedger.Domain.Tenants;
 
@@ -34,6 +35,7 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Statement> Statements => Set<Statement>();
     public DbSet<StatementFile> StatementFiles => Set<StatementFile>();
+    public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
@@ -118,6 +120,20 @@ public sealed class LedgerDbContext(DbContextOptions<LedgerDbContext> options, I
             e.HasKey(x => x.Id);
             e.Property(x => x.ContentType).HasMaxLength(100);
             e.HasIndex(x => x.StatementId);
+            e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        });
+
+        b.Entity<Receipt>(e =>
+        {
+            e.ToTable("receipts");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ContentType).HasMaxLength(100);
+            e.Property(x => x.Merchant).HasMaxLength(200);
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.Total).HasPrecision(19, 4);
+            e.Property(x => x.Tax).HasPrecision(19, 4);
+            e.HasIndex(x => new { x.TenantId, x.AccountId });
+            e.HasIndex(x => new { x.TenantId, x.Status });
             e.HasQueryFilter(x => x.TenantId == CurrentTenantId);
         });
 

@@ -9,6 +9,7 @@
     <!-- Force the whole EF stack to 10.0.9; Npgsql 10.0.2 otherwise drags in EF.Relational 10.0.4 (#45). -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.9" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <PackageVersion Include="Azure.AI.DocumentIntelligence" Version="1.0.0" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.4.6" />
     <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.4.6" />

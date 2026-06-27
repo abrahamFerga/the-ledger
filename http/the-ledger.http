@@ -37,6 +37,43 @@ X-Dev-Role: Owner
 
 { "accountId": "00000000-0000-0000-0000-000000000000", "fileName": "enero.csv", "content": "Fecha,Concepto,Cargo,Abono\n2026-01-05,OXXO,150.00,\n2026-01-06,NOMINA,,12000.00\n" }
 
+### Scan a receipt/ticket (multipart image → staged transaction via OCR; feature #49, replace accountId)
+# The fake extractor reads a UTF-8 "receipt text" body in dev/CI, so this image content is a readable
+# receipt; in prod the bytes are a real photo handled by Azure Document Intelligence (prebuilt-receipt).
+POST {{host}}/api/v1/receipts
+Idempotency-Key: {{$guid}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+Content-Type: multipart/form-data; boundary=ReceiptBoundary
+
+--ReceiptBoundary
+Content-Disposition: form-data; name="accountId"
+
+00000000-0000-0000-0000-000000000000
+--ReceiptBoundary
+Content-Disposition: form-data; name="file"; filename="ticket.jpg"
+Content-Type: image/jpeg
+
+merchant: OXXO TIENDA 1234
+date: 2026-01-15
+total: 152.50
+currency: MXN
+confidence: 0.94
+--ReceiptBoundary--
+
+### List scanned receipts (OCR status + staged-transaction link)
+GET {{host}}/api/v1/receipts
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+
+### Review queue — staged transactions from receipts/statements await confirm
+GET {{host}}/api/v1/transactions/review
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+
 ### Unified ledger feed
 GET {{host}}/api/v1/ledger?confirmedOnly=false
 X-Dev-Tenant: {{tenant}}
