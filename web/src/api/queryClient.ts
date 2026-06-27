@@ -27,4 +27,6 @@ export const queryKeys = {
   spending: (year: number, month: number) => ['insights', 'spending', year, month] as const,
   monthly: ['insights', 'monthly'] as const,
   alerts: (includeResolved: boolean) => ['alerts', includeResolved] as const,
+  receipts: ['receipts'] as const,
+  whatsappOptIns: ['whatsapp', 'optIns'] as const,
 }

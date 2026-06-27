@@ -1,10 +1,13 @@
 import type { ComponentType } from 'react'
 import {
   AlertTriangle,
+  Camera,
   Home,
   Landmark,
   ListChecks,
   PiggyBank,
+  Plug,
+  ClipboardCheck,
   Target,
   TrendingUp,
   Upload,
@@ -24,13 +27,17 @@ export interface NavItem {
  */
 export const nav: NavItem[] = [
   { to: '/', label: 'Home', Icon: Home, primary: true },
-  { to: '/accounts', label: 'Accounts', Icon: Landmark, primary: true },
   { to: '/transactions', label: 'Ledger', Icon: ListChecks, primary: true },
-  { to: '/budgets', label: 'Budgets', Icon: Target, primary: true },
+  // AI-first capture flows are celebrated as primary, thumb-reachable actions (epic 9).
+  { to: '/capture', label: 'Scan', Icon: Camera, primary: true },
+  { to: '/review', label: 'Review', Icon: ClipboardCheck, primary: true },
+  { to: '/accounts', label: 'Accounts', Icon: Landmark, primary: false },
+  { to: '/budgets', label: 'Budgets', Icon: Target, primary: false },
   { to: '/goals', label: 'Goals', Icon: PiggyBank, primary: false },
   { to: '/insights', label: 'Insights', Icon: TrendingUp, primary: false },
   { to: '/alerts', label: 'Alerts', Icon: AlertTriangle, primary: false },
-  { to: '/statements', label: 'Upload', Icon: Upload, primary: true },
+  { to: '/statements', label: 'Upload', Icon: Upload, primary: false },
+  { to: '/integrations', label: 'Integrations', Icon: Plug, primary: false },
 ]
 
 export const primaryNav = nav.filter((item) => item.primary)

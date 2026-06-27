@@ -12,8 +12,11 @@ import {
   goalsApi,
   householdsApi,
   insightsApi,
+  quickAddApi,
+  receiptsApi,
   statementsApi,
   transactionsApi,
+  whatsappApi,
 } from './endpoints'
 import { ApiError } from './client'
 import { queryKeys } from './queryClient'
@@ -27,10 +30,15 @@ import type {
   GoalDto,
   ImportCsvRequest,
   ManualTransactionRequest,
+  QuickAddRequest,
   SetBudgetRequest,
+  TransactionDto,
+  TransactionDraft,
   TransactionFeedQuery,
   TransactionListItem,
   UpdateTransactionRequest,
+  WhatsAppOptInDto,
+  WhatsAppOptInRequest,
 } from './types'
 
 /** Convert any thrown error to a toast-friendly message. */
@@ -283,6 +291,124 @@ export function useAlerts(includeResolved = false) {
   return useQuery({
     queryKey: queryKeys.alerts(includeResolved),
     queryFn: () => alertsApi.list(includeResolved),
+  })
+}
+
+// --- Capture: NL quick-add (epic 9) ---
+/**
+ * Parse a free-text phrase into a transaction draft. This is a query-shaped *parse* (a write to the
+ * LLM that produces a transient draft), so it's a mutation that returns the draft for the confirm
+ * sheet — it never persists. Confirmation flows through `useAddManualTransaction`.
+ */
+export function useQuickAdd() {
+  const toast = useToast()
+  return useMutation<TransactionDraft, unknown, QuickAddRequest>({
+    mutationFn: (body: QuickAddRequest) => quickAddApi.parse(body),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+// --- Capture: receipt OCR (epic 9) ---
+export function useReceipts() {
+  return useQuery({ queryKey: queryKeys.receipts, queryFn: receiptsApi.list })
+}
+
+export function useUploadReceipt() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  return useMutation({
+    mutationFn: ({ accountId, file }: { accountId: string; file: File }) =>
+      receiptsApi.upload(accountId, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.receipts })
+      qc.invalidateQueries({ queryKey: ['reviewQueue'] })
+      toast.success('Receipt uploaded — scanning it now')
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+// --- Review queue: confirm a statement's staged batch (optimistic removal) ---
+/**
+ * Confirm every staged transaction belonging to one statement. The backend confirm endpoint is
+ * statement-scoped (`POST /statements/{id}/confirm`), so we optimistically drop that statement's rows
+ * from the cached review queue and roll back on error.
+ */
+export function useConfirmReviewBatch() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  return useMutation({
+    mutationFn: (statementId: string) => statementsApi.confirm(statementId),
+    onMutate: async (statementId) => {
+      await qc.cancelQueries({ queryKey: ['reviewQueue'] })
+      const snapshots = qc.getQueriesData<TransactionDto[]>({ queryKey: ['reviewQueue'] })
+      for (const [key, data] of snapshots) {
+        if (!data) {
+          continue
+        }
+        qc.setQueryData<TransactionDto[]>(
+          key,
+          data.filter((t) => t.statementId !== statementId),
+        )
+      }
+      return { snapshots }
+    },
+    onError: (e, _vars, context) => {
+      context?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data))
+      toast.error(errorMessage(e))
+    },
+    onSuccess: (statement) => {
+      qc.invalidateQueries({ queryKey: ['ledger'] })
+      qc.invalidateQueries({ queryKey: queryKeys.netWorth })
+      qc.invalidateQueries({ queryKey: queryKeys.accounts })
+      toast.success(`Confirmed ${statement.transactionCount} transaction(s)`)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['reviewQueue'] }),
+  })
+}
+
+// --- Capture: WhatsApp opt-in (epic 9) ---
+export function useWhatsAppOptIns() {
+  return useQuery({ queryKey: queryKeys.whatsappOptIns, queryFn: whatsappApi.list })
+}
+
+export function useWhatsAppOptIn() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  return useMutation({
+    mutationFn: (body: WhatsAppOptInRequest) => whatsappApi.optIn(body),
+    onSuccess: (dto: WhatsAppOptInDto) => {
+      qc.invalidateQueries({ queryKey: queryKeys.whatsappOptIns })
+      toast.success(`WhatsApp connected for ${dto.phoneNumber}`)
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+export function useRevokeWhatsApp() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  return useMutation({
+    mutationFn: (contactId: string) => whatsappApi.revoke(contactId),
+    onMutate: async (contactId) => {
+      await qc.cancelQueries({ queryKey: queryKeys.whatsappOptIns })
+      const previous = qc.getQueryData<WhatsAppOptInDto[]>(queryKeys.whatsappOptIns)
+      if (previous) {
+        qc.setQueryData<WhatsAppOptInDto[]>(
+          queryKeys.whatsappOptIns,
+          previous.filter((o) => o.id !== contactId),
+        )
+      }
+      return { previous }
+    },
+    onError: (e, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(queryKeys.whatsappOptIns, context.previous)
+      }
+      toast.error(errorMessage(e))
+    },
+    onSuccess: () => toast.success('WhatsApp disconnected'),
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.whatsappOptIns }),
   })
 }
 

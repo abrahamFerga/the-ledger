@@ -205,3 +205,77 @@ export interface AlertDto {
   status: string
   createdAt: string
 }
+
+// --- Capture: NL quick-add (epic 9, ADR-0011) ---
+/**
+ * Free-text / dictated phrase to parse into a draft, e.g. "gasté 200 en el Oxxo ayer".
+ * `accountId` optionally pre-selects the account the confirmed transaction will land on.
+ * Maps to `POST /api/v1/transactions/quick-add` (`QuickAddRequest` C# record).
+ */
+export interface QuickAddRequest {
+  text: string
+  accountId?: string | null
+}
+
+/**
+ * Raw wire shape of the parsed draft. NOTE: `TransactionDraft.Direction` is a bare C# enum on the
+ * server with no `JsonStringEnumConverter`, so System.Text.Json serializes it as a NUMBER
+ * (0 = Debit, 1 = Credit) — unlike every other DTO here, which carries direction as a string. We
+ * normalize it to the canonical `TransactionDirection` string union in `quickAddApi` so the rest of
+ * the UI never sees the numeric form.
+ */
+export interface RawTransactionDraft {
+  amount: number
+  currency: string
+  date: string // DateOnly "YYYY-MM-DD", resolved in America/Mexico_City
+  direction: number // 0 = Debit, 1 = Credit
+  merchant: string | null
+  proposedCategoryId: string | null
+  confidence: number // 0..1
+}
+
+/** Normalized parsed draft surfaced to the user for confirm/edit. Never persisted until confirmed. */
+export interface TransactionDraft {
+  amount: number
+  currency: string
+  date: string
+  direction: TransactionDirection
+  merchant: string | null
+  proposedCategoryId: string | null
+  confidence: number
+}
+
+// --- Capture: receipt OCR (epic 9, ADR-0009) ---
+/**
+ * A receipt accepted for OCR. Maps to `ReceiptDto`. `status` is the OCR lifecycle
+ * ("Pending" → "Extracted"/"Failed"); `transactionId` links to the staged transaction once OCR
+ * produces one. Money/date fields are null until extraction completes.
+ */
+export interface ReceiptDto {
+  id: string
+  accountId: string
+  status: string
+  merchant: string | null
+  transactionDate: string | null
+  total: number | null
+  currency: string
+  confidence: number | null
+  needsReview: boolean
+  transactionId: string | null
+}
+
+// --- Capture: WhatsApp opt-in (epic 9, ADR-0010) ---
+/** Opt the current user in to WhatsApp capture & alerts for a phone number. Maps to `WhatsAppOptInRequest`. */
+export interface WhatsAppOptInRequest {
+  phoneNumber: string
+  defaultAccountId?: string | null
+}
+
+/** A stored WhatsApp opt-in (phone → user mapping + consent), tenant-scoped. Maps to `WhatsAppOptInDto`. */
+export interface WhatsAppOptInDto {
+  id: string
+  phoneNumber: string
+  userId: string
+  defaultAccountId: string | null
+  optedIn: boolean
+}
