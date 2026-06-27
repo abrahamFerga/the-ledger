@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using TheLedger.Application.Abstractions;
 using TheLedger.Application.Alerts;
 using TheLedger.Application.Budgeting;
@@ -7,11 +8,13 @@ using TheLedger.Application.Foundations.DataSubject;
 using TheLedger.Application.Foundations.Households;
 using TheLedger.Application.Ingestion;
 using TheLedger.Application.Ingestion.Extraction;
+using TheLedger.Application.Ingestion.QuickAdd;
 using TheLedger.Application.Insights;
 using TheLedger.Application.Ledger;
 using TheLedger.Application.Notifications;
 using TheLedger.Application.Storage;
 using TheLedger.Infrastructure.Categorization;
+using TheLedger.Infrastructure.Ingestion;
 using TheLedger.Infrastructure.Notifications;
 using TheLedger.Infrastructure.Storage;
 using TheLedger.Infrastructure.Parsing;
@@ -52,6 +55,13 @@ public static class DependencyInjection
         // LLM (ADR-0004) when an IChatClient is configured; otherwise it stays rules-only.
         services.AddScoped<ICategorizer, CompositeCategorizer>();
         services.AddScoped<ILedgerService, LedgerService>();
+
+        // NL quick-add parser (feature #51, ADR-0011). Deterministic clock pinned to America/Mexico_City for
+        // relative dates ("ayer"/"antier"/"el lunes"); BCL TimeProvider injected so tests are deterministic.
+        // The composite uses the LLM-forward parser only when an IChatClient is wired AND the user opted in to
+        // LLM consent; otherwise it falls back to the deterministic fake. The returned draft is never persisted.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<INaturalLanguageTransactionParser, CompositeNaturalLanguageTransactionParser>();
 
         // Budgeting + goals (features #14, #15).
         services.AddScoped<IBudgetService, BudgetService>();

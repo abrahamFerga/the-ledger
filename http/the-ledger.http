@@ -37,6 +37,37 @@ X-Dev-Role: Owner
 
 { "accountId": "00000000-0000-0000-0000-000000000000", "fileName": "enero.csv", "content": "Fecha,Concepto,Cargo,Abono\n2026-01-05,OXXO,150.00,\n2026-01-06,NOMINA,,12000.00\n" }
 
+### NL quick-add — parse a Spanish phrase into a transaction DRAFT (feature #51).
+### Returns the parsed draft only; nothing persists until the user confirms via POST /transactions.
+POST {{host}}/api/v1/transactions/quick-add
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+
+{ "text": "gasté 200 en el Oxxo ayer" }
+
+### NL quick-add — income phrasing ("cobré ... de nómina") → Credit direction.
+POST {{host}}/api/v1/transactions/quick-add
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+
+{ "text": "cobré 5000 de nómina hoy" }
+
+### NL quick-add — relative date "antier" (2 days ago), resolved in America/Mexico_City.
+POST {{host}}/api/v1/transactions/quick-add
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+X-Dev-Tenant: {{tenant}}
+X-Dev-User: {{user}}
+X-Dev-Role: Owner
+
+{ "text": "comí 350 en restaurante antier" }
+
 ### Unified ledger feed
 GET {{host}}/api/v1/ledger?confirmedOnly=false
 X-Dev-Tenant: {{tenant}}
