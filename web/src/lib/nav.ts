@@ -1,12 +1,36 @@
+import type { ComponentType } from 'react'
+import {
+  AlertTriangle,
+  Home,
+  Landmark,
+  ListChecks,
+  PiggyBank,
+  Target,
+  TrendingUp,
+  Upload,
+} from 'lucide-react'
+
 export interface NavItem {
   to: string
   label: string
-  icon: string
+  Icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+  /** Shown in the thumb-reachable mobile bottom bar (kept to ~5 to stay uncluttered). */
+  primary: boolean
 }
 
+/**
+ * Navigation surface. The desktop sidebar shows every item; the mobile bottom bar shows the
+ * `primary` ones (one-handed primary flows). Order is the same in both.
+ */
 export const nav: NavItem[] = [
-  { to: '/', label: 'Home', icon: '🏠' },
-  { to: '/accounts', label: 'Accounts', icon: '💳' },
-  { to: '/statements', label: 'Upload', icon: '📄' },
-  { to: '/budgets', label: 'Budgets', icon: '🎯' },
+  { to: '/', label: 'Home', Icon: Home, primary: true },
+  { to: '/accounts', label: 'Accounts', Icon: Landmark, primary: true },
+  { to: '/transactions', label: 'Ledger', Icon: ListChecks, primary: true },
+  { to: '/budgets', label: 'Budgets', Icon: Target, primary: true },
+  { to: '/goals', label: 'Goals', Icon: PiggyBank, primary: false },
+  { to: '/insights', label: 'Insights', Icon: TrendingUp, primary: false },
+  { to: '/alerts', label: 'Alerts', Icon: AlertTriangle, primary: false },
+  { to: '/statements', label: 'Upload', Icon: Upload, primary: true },
 ]
+
+export const primaryNav = nav.filter((item) => item.primary)

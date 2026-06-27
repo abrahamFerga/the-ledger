@@ -14,6 +14,11 @@
     "project": 2,
     "visibility": "public"
   },
+  "goal": {
+    "objective": "Build the-ledger end to end as an AI-first personal-finance system: AI capture (receipts, WhatsApp, NL quick-add) and a professional, mobile-responsive React UI.",
+    "autonomy": "auto",
+    "stop_when": "backlog-drained"
+  },
   "skills": {
     "self": {
       "marketplace": "my-skills",

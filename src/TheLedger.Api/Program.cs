@@ -29,6 +29,10 @@ builder.Services.AddAcsEmail(builder.Configuration);
 // Azure Blob statement storage — registered only when configured; defaults to the DB store (feature #35).
 builder.Services.AddAzureBlobStorage(builder.Configuration);
 
+// Azure Document Intelligence receipt OCR — registered only when configured; defaults to the fake
+// extractor so CI needs no Azure dependency (feature #49, ADR-0009).
+builder.Services.AddAzureDocumentIntelligence(builder.Configuration);
+
 // AuthN (OIDC / Dev) + RBAC policies.
 builder.AddLedgerAuth();
 
