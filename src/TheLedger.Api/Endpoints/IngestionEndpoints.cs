@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using TheLedger.Api.Setup;
 using TheLedger.Application.Authorization;
 using TheLedger.Application.Ingestion;
+using TheLedger.Application.Ingestion.QuickAdd;
 using TheLedger.Application.Ingestion.Receipts;
 
 namespace TheLedger.Api.Endpoints;
@@ -28,6 +29,26 @@ public static class IngestionEndpoints
         transactions.MapGet("/review", async (Guid? statementId, IIngestionService svc, CancellationToken ct) =>
                 Results.Ok(await svc.ListReviewQueueAsync(statementId, ct)))
             .RequireAuthorization(Policies.TransactionsView);
+
+        // NL quick-add (feature #51, ADR-0011): parse a free-text/dictated phrase into a transaction DRAFT.
+        // The draft is returned for explicit user confirmation — it is NOT persisted here. On confirm, the
+        // SPA replays it through POST /transactions (the manual-create path above). Tenant-scoped + RBAC; the
+        // existing Idempotency-Key middleware participates as on any write; errors are Problem Details.
+        transactions.MapPost("/quick-add",
+                async (QuickAddRequest req, INaturalLanguageTransactionParser parser, CancellationToken ct) =>
+                {
+                    if (string.IsNullOrWhiteSpace(req.Text))
+                    {
+                        return Results.Problem(
+                            title: "Empty quick-add text",
+                            detail: "Provide a phrase to parse, e.g. \"gasté 200 en el Oxxo\".",
+                            statusCode: StatusCodes.Status400BadRequest);
+                    }
+
+                    var draft = await parser.ParseAsync(req, ct);
+                    return Results.Ok(draft);
+                })
+            .RequireAuthorization(Policies.TransactionsEdit);
 
         var statements = v1.MapGroup("/statements").WithTags("Statements");
         statements.MapPost("/csv", async (ImportCsvRequest req, IIngestionService svc, CancellationToken ct) =>
