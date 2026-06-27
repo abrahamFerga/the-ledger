@@ -31,7 +31,9 @@ jobs:
       # npm install (not ci): the lock is generated on Windows and omits some
       # Linux-only optional native deps that `npm ci` strictly requires.
       - run: npm install --no-audit --no-fund
+      - run: npm run lint
       - run: npm run build
+      - run: npm test
 
   terraform:
     runs-on: ubuntu-latest
